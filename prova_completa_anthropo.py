@@ -74,7 +74,8 @@ class AnthropomorphicArm:
 # Instantiate robot
 # --------------------------
 link_lengths = [0.5, 0.5, 0.5]   # l1, l2, l3
-link_masses  = [0.7, 0.7, 0.7]          # m1, m2, m3
+#link_masses  = [0.7, 0.7, 0.7]         # m1, m2, m3
+link_masses = [15, 10, 5]
 link_radiuses = [0.2, 0.1, 0.1]
 
 my_robot = AnthropomorphicArm(link_lengths, link_masses, link_radiuses)
@@ -86,8 +87,8 @@ n = robot.n # number of joints
 # --------------------------
 DT = 0.002
 T  = 3.0
-Kp = 5 * np.diag([1, 1, 1, 1])
-Kd = 5 * np.diag([1, 1, 1, 1])
+Kp = 30 * np.diag([1, 1, 1, 1])
+Kd = 30 * np.diag([1, 1, 1, 1])
 
 q0 = np.array([0, 0, 0, 0])
 qf = np.array([0, 0, 0, 0])
