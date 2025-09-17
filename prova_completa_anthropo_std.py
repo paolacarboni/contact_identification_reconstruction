@@ -108,7 +108,7 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 3.0
+T  = 5.0
 Kp = 30 * np.diag([1, 1, 1])
 Kd = 30 * np.diag([1, 1, 1])
 K_0 = 20 * np.diag([1, 1, 1]) # residual gain
@@ -120,7 +120,8 @@ time = np.arange(0, T, DT)
 N = len(time)
 
 #gravity
-g_0 = np.array([0, 0, -9.81])
+#g_0 = np.array([0, 0, -9.81])
+g_0 = np.array([0, 0, 0])
 # Trajectory
 traj = jtraj(q0, qf, N)
 q_d, qd_d, qdd_d = traj.q, traj.qd, traj.qdd
@@ -146,18 +147,21 @@ pext_links_zeros = np.zeros((n, 3), dtype=np.float64)
 res = np.zeros((n), dtype=np.float64)
 p_hat = np.zeros((n), dtype=np.float64)
 
+tau_ext_try_2 = np.zeros((n), dtype=np.float64)
+tau_ext_try_3 = np.zeros((n), dtype=np.float64)
+
 bool_f2 = False
 bool_f3 = True
 
-F2_ext = np.array([0,-300, -100])
+F2_ext = np.array([0,0, -100])
 P2_ext = np.array([-0.1,0,0])
 
 F3_ext = np.array([0,-100,0])
 P3_ext = np.array([-0.1,0,0])
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_2 = np.array([0.5, 2.5])
-time_interval_3 = np.array([0.5, 2.0])
+time_interval_2 = np.array([1.0, 2.5])
+time_interval_3 = np.array([0.8, 3.1])
 
 # --------------------------
 # 3D animation helpers
@@ -256,6 +260,7 @@ def rk4_step(q, qd, tau, tau_ext, tau_prime, M, DT):
         q = y[:n]
         qd = y[n:]
         qdd = np.linalg.pinv(M) @ (tau + tau_ext - tau_prime)
+        #qdd = np.linalg.pinv(M) @ (tau- tau_prime)
         return np.concatenate([qd, qdd])
 
     y = np.concatenate([q, qd])
@@ -280,7 +285,7 @@ print("Torque from Jacobian method:", tau_jac)
 # --------------------------
 # Simulation loop
 # --------------------------
-ANIMATE = False
+ANIMATE = False#
 if ANIMATE:
     fig, ax = init_custom_3d()
 
@@ -345,12 +350,27 @@ for k, t in enumerate(time):
     #stima di tau_prime
     #print("GRAVITY SHOULD NOT BE ZERO")
     tau_prime = robot.rne(q, qd, np.zeros(n), gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links)#, ext_forces=Fe, ext_moments=Ne, ext_points=Re)
-
+    #tau_prime_ext = robot.rne(q, qd, np.zeros(n), gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links_zeros) # correct according to theory 
     #rhs = tau - C @ qd - g
 
+    print('tau tot, fext != 0')
     tau_tot = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links, pext_links = pext_links)
     tau_no_forces = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links_zeros) #fext_links = fext_links_zeros
     tau_ext = -(tau_tot - tau_no_forces)
+    print('tau_ext', tau_ext)
+
+
+    if bool_f2 and t > time_interval_2[0] and t < time_interval_2[1]:
+        tau_ext_try_2 = compute_tau_from_force(robot, q, 1, fext_links[1], pext_links[1])
+    if bool_f3 and t > time_interval_3[0] and t < time_interval_3[1]:
+        tau_ext_try_3 = compute_tau_from_force(robot, q, 2, fext_links[2], pext_links[2])
+
+    tau_ext_try = tau_ext_try_2 + tau_ext_try_3
+    print('tau_ext_try', tau_ext_try)
+
+    #print('tau_no_forces', tau_ext)
+    # print('tau + tau_ext', tau + tau_ext)
+    # print('tau_tot', tau_tot)
 
     #qdd = np.linalg.solve(M, rhs) if np.linalg.cond(M) < 1e12 else np.linalg.pinv(M) @ rhs
     eps = 1e-8            # damping
@@ -381,6 +401,7 @@ for k, t in enumerate(time):
 # --------------------------
 labels_q = [f"q{i+1}" for i in range(n)]
 labels_qd = [f"q̇{i+1}" for i in range(n)]
+
 
 plt.figure()
 plt.plot(time, q_log[:, :3])
@@ -425,3 +446,7 @@ plt.ylabel("tau_ext [Nm]")
 plt.legend([f"tau_ext{i+1}" for i in range(n)])
 
 plt.show()
+plt.show(block=False)
+plt.pause(4) # Pause for interval seconds.
+input("hit[enter] to end.")
+plt.close('all') # all open plots are correctly closed after each run
