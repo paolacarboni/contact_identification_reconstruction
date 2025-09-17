@@ -71,7 +71,7 @@ class AnthropomorphicArm:
         #I3 = np.diag([0, 0, Izz3])
         L3 = RevoluteDH(
             a=self.l[2], alpha=0, d=0,
-            m=self.m[2], r=r3, I=I2, Jm=0, G=1
+            m=self.m[2], r=r3, I=I3, Jm=0, G=1
         )
 
         # Link 4: wrist (dummy for EE position)
@@ -101,14 +101,14 @@ fext_links = [[0,0,0, 0,0,0] for _ in range(n)] # Fx Fy Fz Mx My Mz
 pext_links = [[0,0,0] for _ in range(n)] # px py pz
 
 # Apply a 10 N force along +x at 0.2 m along link 3 (index 2), no moment
-fext_links[2] = [0,0,0, 0,0,0]
-pext_links[2] = [0.4,0,0]
+#fext_links[2] = [0,0,0, 0,0,0]
+#pext_links[2] = [-0.1,0,0]
 # --------------------------
 # Simulation config
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 5.0
+T  = 3.0
 Kp = 30 * np.diag([1, 1, 1])
 Kd = 30 * np.diag([1, 1, 1])
 K_0 = 20 * np.diag([1, 1, 1]) # residual gain
@@ -128,33 +128,36 @@ q_d, qd_d, qdd_d = traj.q, traj.qd, traj.qdd
 # Logs
 q = q0.copy()
 qd = np.zeros(n)
+
 q_log   = np.zeros((N, n))
 qd_log  = np.zeros((N, n))
 tau_log = np.zeros((N, n))
 tau_prime_log = np.zeros((N, n))
+tau_ext_log = np.zeros((N, n))
 res_log = np.zeros((N, n))
 
-F_ext_ee = np.array([0,0,-30, 0, 0, 0])
+#F_ext_ee = np.array([0,0,-30, 0, 0, 0])
 
 fext_links = np.zeros((n, 3), dtype=np.float64)
 fext_links_zeros = np.zeros((n, 3), dtype=np.float64)
 mext_links = np.zeros((n, 3), dtype=np.float64)
 pext_links = np.zeros((n, 3), dtype=np.float64)
+pext_links_zeros = np.zeros((n, 3), dtype=np.float64)
 res = np.zeros((n), dtype=np.float64)
 p_hat = np.zeros((n), dtype=np.float64)
 
-bool_f2 = True
-bool_f3 = False
+bool_f2 = False
+bool_f3 = True
 
-F2_ext = np.array([0,-50, 0])
+F2_ext = np.array([0,-300, -100])
 P2_ext = np.array([-0.1,0,0])
 
-F3_ext = np.array([0,-50,0])
+F3_ext = np.array([0,-100,0])
 P3_ext = np.array([-0.1,0,0])
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_2 = np.array([2.5, 3.5])
-time_interval_3 = np.array([2.0, 2.5])
+time_interval_2 = np.array([0.5, 2.5])
+time_interval_3 = np.array([0.5, 2.0])
 
 # --------------------------
 # 3D animation helpers
@@ -200,7 +203,46 @@ def update_custom_3d(ax, robot, q):
     ax.scatter(xs[-1], ys[-1], zs[-1], color='red', s=80, edgecolors='k')
     plt.pause(0.001)
 
-def rk4_step(q, qd, tau, tau_prime, M, DT):
+def compute_tau_from_force(robot, q, link_index, f_local, p_local):
+    """
+    Joint torques caused by a pure force applied at a point on a link.
+
+    Parameters
+    ----------
+    robot : DHRobot
+        Your robot model.
+    q : (n,) array
+        Joint configuration.
+    link_index : int
+        Index of the link where the force is applied (0-based).
+    f_local : (3,) array
+        Force vector in the local link frame.
+    p_local : (3,) array
+        Point of application (vector from link frame origin) in the local link frame.
+
+    Returns
+    -------
+    tau : (n,) array
+        Joint torque vector.
+    """
+    # Forward kinematics for all links
+    T_all = robot.fkine_all(q, old=False)   # returns list of SE3, length n+1 (0..n)
+    T_link = T_all[link_index+1]            # transform of link frame
+    R, o = T_link.R, T_link.t
+
+    # Transform into world frame
+    f_world = R @ f_local
+    p_world = o + R @ p_local
+
+    # Jacobian of that point (in base frame)
+    J0 = robot.jacob0(q, end=link_index+1)   # 6×n spatial Jacobian
+    Jv = J0[:3, :]                           # translational part only
+
+    # Generalized torques
+    tau = Jv.T @ f_world
+    return tau
+
+def rk4_step(q, qd, tau, tau_ext, tau_prime, M, DT):
     """
     One RK4 step for rigid-body dynamics
     q, qd : current position/velocity (shape (n,))
@@ -213,7 +255,7 @@ def rk4_step(q, qd, tau, tau_prime, M, DT):
     def f(y):
         q = y[:n]
         qd = y[n:]
-        qdd = np.linalg.pinv(M) @ (tau - tau_prime)
+        qdd = np.linalg.pinv(M) @ (tau + tau_ext - tau_prime)
         return np.concatenate([qd, qdd])
 
     y = np.concatenate([q, qd])
@@ -227,6 +269,14 @@ def rk4_step(q, qd, tau, tau_prime, M, DT):
 
     return y_new[:n], y_new[n:]
 
+q_test = np.array([0.0, 0.0, 0.0])
+link_i = 2                  # apply on link 3 (0-based)
+f_local = np.array([0, 0, -300])   # downward in link frame
+p_local = np.array([-0.1, 0, 0])   # offset from link origin
+
+tau_jac = compute_tau_from_force(robot, q_test, link_i, f_local, p_local)
+print("Torque from Jacobian method:", tau_jac)
+
 # --------------------------
 # Simulation loop
 # --------------------------
@@ -235,6 +285,7 @@ if ANIMATE:
     fig, ax = init_custom_3d()
 
 for k, t in enumerate(time):
+    print('t', t)
     #print('entered enumerate time')
     q_ref, qd_ref, qdd_ref = q_d[k], qd_d[k], qdd_d[k]
     e, edot = q_ref - q, qd_ref - qd
@@ -293,24 +344,34 @@ for k, t in enumerate(time):
     #print('M estimated')
     #stima di tau_prime
     #print("GRAVITY SHOULD NOT BE ZERO")
-    tau_prime = robot.rne(q, qd, np.zeros(n), gravity = g_0, fext_links = fext_links, pext_links = pext_links)#, ext_forces=Fe, ext_moments=Ne, ext_points=Re)
+    tau_prime = robot.rne(q, qd, np.zeros(n), gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links)#, ext_forces=Fe, ext_moments=Ne, ext_points=Re)
 
     #rhs = tau - C @ qd - g
 
+    tau_tot = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links, pext_links = pext_links)
+    tau_no_forces = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links_zeros) #fext_links = fext_links_zeros
+    tau_ext = -(tau_tot - tau_no_forces)
+
     #qdd = np.linalg.solve(M, rhs) if np.linalg.cond(M) < 1e12 else np.linalg.pinv(M) @ rhs
     eps = 1e-8            # damping
-    rhs = tau - tau_prime
-    qdd = np.linalg.solve(M + eps*np.eye(M.shape[0]), rhs)
+        
+    #rhs = tau + tau_ext - tau_prime ********
+
+
+    #qdd = np.linalg.solve(M + eps*np.eye(M.shape[0]), rhs)
     #qd = qd + qdd * DT
     #q = q + qd * DT
-    q, qd = rk4_step(q, qd, tau, tau_prime, M, DT)
+    q, qd = rk4_step(q, qd, tau, tau_ext, tau_prime, M, DT)
+
+    J = robot.fkine_all(q)
+    tau_ext_th = J
 
     # momentum residuals 
     res, p_hat = residuals.momentum_residuals(robot, q, qd, tau, tau_prime, M, M_dot, K_0, p_hat, res, DT)
     #print('residuals: ', res)
 
     # Log
-    q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k] = q, qd, tau, tau_prime, res
+    q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k] = q, qd, tau, tau_prime, res, tau_ext
 
     if ANIMATE:
         update_custom_3d(ax, robot, q)
@@ -355,5 +416,12 @@ plt.title("Momentum Residuals")
 plt.xlabel("Time [s]")
 plt.ylabel("res [Nm]")
 plt.legend([f"res{i+1}" for i in range(n)])
+
+plt.figure()
+plt.plot(time, tau_ext_log)
+plt.title("tau_ext")
+plt.xlabel("Time [s]")
+plt.ylabel("tau_ext [Nm]")
+plt.legend([f"tau_ext{i+1}" for i in range(n)])
 
 plt.show()
