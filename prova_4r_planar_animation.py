@@ -543,7 +543,7 @@ for k, t in enumerate(time):
     solver.l4 : link_lengths[3]
     }
 
-        # Add taus only if conditions are met
+    # Add taus only if conditions are met
     if case_single >= 1:
         knowns[solver.tau_1] = res[0]
     if case_single >= 2:
@@ -572,7 +572,7 @@ for k, t in enumerate(time):
 
 
 
-# --------------------------
+# -------------------------
 # Plots
 # --------------------------
 labels_q = [f"q{i+1}" for i in range(n)]
