@@ -175,7 +175,7 @@ def update_custom_3d(ax, robot, q, reach, margin):
     plt.pause(0.001)
 
 
-# ---------------- Run animation ---------------- #
+# ---------------- Run animation -------------- #
 # if __name__ == "__main__":
 #     link_lengths = [0.5, 0.5, 0.5, 0.5]
 #     link_masses = [5, 5, 5, 5]
