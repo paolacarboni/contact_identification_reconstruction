@@ -10,6 +10,8 @@ from my_DHRobot_fext import my_DHRobot_fext
 from residuals import residuals
 from math import pi
 from solve_planar import SolvePlanarSystem
+import sympy as sp
+
 
 plt.style.use("ggplot")  # ✅ same style as your Anthro3R
 
@@ -206,7 +208,7 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 3.0
+T  = .3
 Kp = 30 * np.diag([1, 1, 1,1 ])
 Kd = 30 * np.diag([1, 1, 1, 1])
 K_0 = 20 * np.diag([1, 1, 1, 1]) # residual gain
@@ -234,6 +236,11 @@ tau_log = np.zeros((N, n))
 tau_prime_log = np.zeros((N, n))
 tau_ext_log = np.zeros((N, n))
 res_log = np.zeros((N, n))
+
+# reconstructed values, single contact force
+F_x_log = np.zeros(N)
+F_y_log = np.zeros(N)
+l_log = np.zeros(N)
 
 #F_ext_ee = np.array([0,0,-30, 0, 0, 0])
 
@@ -275,15 +282,20 @@ F4_ext_ = np.array([0,-100,0])
 P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([0.3, 0.6])
-time_interval_2 = np.array([0.6, 0.9])
-time_interval_3 = np.array([0.9, 1.2])
+time_interval_1 = np.array([0.1, 0.98])
+time_interval_2 = np.array([0.2, 0.3])
+time_interval_3 = np.array([0.2, .3])
 time_interval_4 = np.array([1.2, 1.5])
 
 #case for single force applied
-num_forces = 2 #[1, 2] how many external forces are applied
+num_forces = 1 #[1, 2] how many external forces are applied
 case_single = 3 # [1, 2, 3, 4] on which link is the force applied
-case_double = 14 # [14, 24, 34, 44] on which link is the force applied
+case_double = 34 # [14, 24, 34, 44] on which link is the force applied
+
+if num_forces == 1: 
+    case = case_single
+else:
+    case = case_double
 
 # SINGLE FORCE CASE
 if num_forces ==1 and case_single == 1:
@@ -385,6 +397,8 @@ link_i = 2                  # apply on link 3 (0-based)
 f_local = np.array([0, 0, -300])   # downward in link frame
 p_local = np.array([-0.1, 0, 0])   # offset from link origin
 
+solver = SolvePlanarSystem(num_forces, case)
+
 # tau_jac = compute_tau_from_force(robot, q_test, link_i, f_local, p_local)
 # print("Torque from Jacobian method:", tau_jac)
 
@@ -437,6 +451,10 @@ for k, t in enumerate(time):
         fext_links[3] = np.zeros(3)
         pext_links[3] = np.zeros(3)
 
+    fext_array = np.array(fext_links)
+    totals = fext_array.sum(axis=0)
+    Fx_tot = totals[0]
+    Fy_tot = totals[1]
     # Forward dynamics
     #M = robot.inertia(q)
     #C = robot.coriolis(q, qd)
@@ -472,11 +490,11 @@ for k, t in enumerate(time):
     #tau_prime_ext = robot.rne(q, qd, np.zeros(n), gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links_zeros) # correct according to theory 
     #rhs = tau - C @ qd - g
 
-    print('tau tot, fext != 0')
+    #print('tau tot, fext != 0')
     tau_tot = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links, pext_links = pext_links)
     tau_no_forces = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links_zeros) #fext_links = fext_links_zeros
     tau_ext = -(tau_tot - tau_no_forces)
-    print('tau_ext', tau_ext)
+    #print('tau_ext', tau_ext)
 
 
     # if bool_f2 and t > time_interval_2[0] and t < time_interval_2[1]:
@@ -509,6 +527,43 @@ for k, t in enumerate(time):
     res, p_hat = residuals.momentum_residuals(robot, q, qd, tau, tau_prime, M, M_dot, K_0, p_hat, res, DT)
     #print('residuals: ', res)
 
+    # SOLVE THE SYSTEM 
+    # SINGLE CASE
+
+    knowns = {
+    solver.F_tot_x: Fx_tot,     # known total force x
+    solver.F_tot_y: Fy_tot,      # known total force y
+    solver.q1: q[0],      # orientation
+    solver.q2: q[1],
+    solver.q3: q[2],
+    solver.q4: q[3],
+    solver.l1 : link_lengths[0],
+    solver.l2 : link_lengths[1],
+    solver.l3 : link_lengths[2],
+    solver.l4 : link_lengths[3]
+    }
+
+        # Add taus only if conditions are met
+    if case_single >= 1:
+        knowns[solver.tau_1] = res[0]
+    if case_single >= 2:
+        knowns[solver.tau_2] = res[1]
+    if case_single >= 3:
+        knowns[solver.tau_3] = res[2]
+    if case_single >= 4:
+        knowns[solver.tau_4] = res[3]
+
+    print('q1', q[0])
+    solution = solver.solve(knowns)
+    print('solution: ', solution)
+    if solution:  # se esiste almeno una soluzione
+        sol = solution[0]
+        F_x_val = sol.get(solver.F_x, None)
+        F_y_val = sol.get(solver.F_y, None)
+        l_val   = sol.get(solver.l_bar, None)
+        F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
+    # assegni ai tuoi log
+    #F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
     # Log
     q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k] = q, qd, tau, tau_prime, res, tau_ext
 
@@ -538,19 +593,19 @@ plt.xlabel("Time [s]")
 plt.ylabel("q̇ [rad/s]")
 plt.legend(labels_qd)
 
-plt.figure()
-plt.plot(time, tau_log)
-plt.title("Applied Joint Torques")
-plt.xlabel("Time [s]")
-plt.ylabel("τ [Nm]")
-plt.legend([f"τ{i+1}" for i in range(n)])
+# plt.figure()
+# plt.plot(time, tau_log)
+# plt.title("Applied Joint Torques")
+# plt.xlabel("Time [s]")
+# plt.ylabel("τ [Nm]")
+# plt.legend([f"τ{i+1}" for i in range(n)])
 
-plt.figure()
-plt.plot(time, tau_prime_log)
-plt.title("tau_prime")
-plt.xlabel("Time [s]")
-plt.ylabel("tau_prime [Nm]")
-plt.legend([f"tau_prime{i+1}" for i in range(n)])
+# plt.figure()
+# plt.plot(time, tau_prime_log)
+# plt.title("tau_prime")
+# plt.xlabel("Time [s]")
+# plt.ylabel("tau_prime [Nm]")
+# plt.legend([f"tau_prime{i+1}" for i in range(n)])
 
 plt.figure()
 plt.plot(time, res_log)
@@ -565,6 +620,27 @@ plt.title("tau_ext")
 plt.xlabel("Time [s]")
 plt.ylabel("tau_ext [Nm]")
 plt.legend([f"tau_ext{i+1}" for i in range(n)])
+
+plt.figure()
+plt.plot(time, F_x_log)
+plt.title("F_x")
+plt.xlabel("Time [s]")
+plt.ylabel("F_x [Nm]")
+plt.legend([f"F_x{i+1}" for i in range(n)])
+
+plt.figure()
+plt.plot(time, F_y_log)
+plt.title("F_y")
+plt.xlabel("Time [s]")
+plt.ylabel("F_y [Nm]")
+plt.legend([f"F_y{i+1}" for i in range(n)])
+
+plt.figure()
+plt.plot(time, l_log)
+plt.title("l")
+plt.xlabel("Time [s]")
+plt.ylabel("l [Nm]")
+plt.legend([f"l{i+1}" for i in range(n)])
 
 plt.show()
 plt.show(block=False)
