@@ -9,6 +9,7 @@ from my_DHRobot import my_DHRobot
 from my_DHRobot_fext import my_DHRobot_fext
 from residuals import residuals
 from math import pi
+from solve_planar import SolvePlanarSystem
 
 plt.style.use("ggplot")  # ✅ same style as your Anthro3R
 
@@ -143,7 +144,7 @@ fig, ax = init_custom_3d()
 #     update_custom_3d(ax, robot, q)
 
 
-def draw_frame(ax, T, length=0.1):
+def draw_frame(ax, T, length=0.05):
     origin = T.t
     R = T.R
     ax.quiver(*origin, *R[:, 0] * length, color="r", linewidth=1.2)
@@ -247,8 +248,13 @@ p_hat = np.zeros((n), dtype=np.float64)
 tau_ext_try_2 = np.zeros((n), dtype=np.float64)
 tau_ext_try_3 = np.zeros((n), dtype=np.float64)
 
+bool_f1 = False
 bool_f2 = True
 bool_f3 = False
+bool_f4 = False
+
+F1_ext = np.array([0,-100, 0])
+P1_ext = np.array([-0.1,0,0])
 
 F2_ext = np.array([0,-100, 0])
 P2_ext = np.array([-0.1,0,0])
@@ -256,10 +262,19 @@ P2_ext = np.array([-0.1,0,0])
 F3_ext = np.array([0,-100,0])
 P3_ext = np.array([-0.1,0,0])
 
+F4_ext = np.array([0,-100,0])
+P4_ext = np.array([-0.1,0,0])   
+
+#case for single force applied
+case = 1 # [1, 2, 3, 4]
+
+
+
 #time_interval_1 = np.array([0, 0.5])
+time_interval_1 = np.array([0, 0.5])
 time_interval_2 = np.array([0.1, 2.5])
 time_interval_3 = np.array([0.8, 3.1])
-
+time_interval_4 = np.array([0.8, 3.1])
 
 def rk4_step(q, qd, tau, tau_ext, tau_prime, M, DT):
     """
@@ -300,7 +315,7 @@ p_local = np.array([-0.1, 0, 0])   # offset from link origin
 # --------------------------
 # Simulation loop
 # --------------------------
-ANIMATE = True#
+ANIMATE = False#
 if ANIMATE:
     fig, ax = init_custom_3d()
 
@@ -319,6 +334,13 @@ for k, t in enumerate(time):
     tau = tau_fb
 
     # external forces
+    if bool_f1 and t > time_interval_1[0] and t < time_interval_1[1]:
+        fext_links[0] = F1_ext
+        pext_links[0] = P1_ext
+    else:
+        fext_links[0] = np.zeros(3)
+        pext_links[0] = np.zeros(3)
+        #bool_f1 = False
     if bool_f2 and t > time_interval_2[0] and t < time_interval_2[1]:
         fext_links[1] = F2_ext
         pext_links[1] = P2_ext
@@ -332,6 +354,12 @@ for k, t in enumerate(time):
     else:
         fext_links[2] = np.zeros(3)
         pext_links[2] = np.zeros(3)
+    if bool_f4 and t > time_interval_4[0] and t < time_interval_4[1]:
+        fext_links[3] = F4_ext
+        pext_links[3] = P4_ext
+    else:
+        fext_links[3] = np.zeros(3)
+        pext_links[3] = np.zeros(3)
 
     # Forward dynamics
     #M = robot.inertia(q)
@@ -410,6 +438,8 @@ for k, t in enumerate(time):
 
     if ANIMATE:
         update_custom_3d(ax, robot, q, reach = 2, margin=.4)
+
+
 
 # --------------------------
 # Plots
