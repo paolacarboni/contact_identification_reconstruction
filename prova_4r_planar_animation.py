@@ -206,7 +206,7 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 5.0
+T  = 3.0
 Kp = 30 * np.diag([1, 1, 1,1 ])
 Kd = 30 * np.diag([1, 1, 1, 1])
 K_0 = 20 * np.diag([1, 1, 1, 1]) # residual gain
@@ -248,33 +248,109 @@ p_hat = np.zeros((n), dtype=np.float64)
 tau_ext_try_2 = np.zeros((n), dtype=np.float64)
 tau_ext_try_3 = np.zeros((n), dtype=np.float64)
 
-bool_f1 = False
-bool_f2 = True
-bool_f3 = False
-bool_f4 = False
+# definizione variabili forze esterne e punti di contatto
+F1_ext = np.array([0, 0, 0])
+P1_ext = np.array([0, 0, 0])
 
-F1_ext = np.array([0,-100, 0])
-P1_ext = np.array([-0.1,0,0])
+F2_ext = np.array([0, 0, 0])
+P2_ext = np.array([0, 0, 0])
 
-F2_ext = np.array([0,-100, 0])
-P2_ext = np.array([-0.1,0,0])
+F3_ext = np.array([0, 0, 0])
+P3_ext = np.array([0, 0, 0])
 
-F3_ext = np.array([0,-100,0])
-P3_ext = np.array([-0.1,0,0])
+F4_ext = np.array([0, 0, 0])
+P4_ext = np.array([0, 0, 0])
 
-F4_ext = np.array([0,-100,0])
-P4_ext = np.array([-0.1,0,0])   
+# valori nominali di forze esterne e punti di contatto 
+F1_ext_ = np.array([0,-100, 0])
+P1_ext_ = np.array([-0.1,0,0])
 
-#case for single force applied
-case = 1 # [1, 2, 3, 4]
+F2_ext_ = np.array([0,-100, 0])
+P2_ext_ = np.array([-0.1,0,0])
 
+F3_ext_ = np.array([0,-100,0])
+P3_ext_ = np.array([-0.1,0,0])
 
+F4_ext_ = np.array([0,-100,0])
+P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([0, 0.5])
-time_interval_2 = np.array([0.1, 2.5])
-time_interval_3 = np.array([0.8, 3.1])
-time_interval_4 = np.array([0.8, 3.1])
+time_interval_1 = np.array([0.3, 0.6])
+time_interval_2 = np.array([0.6, 0.9])
+time_interval_3 = np.array([0.9, 1.2])
+time_interval_4 = np.array([1.2, 1.5])
+
+#case for single force applied
+num_forces = 2 #[1, 2] how many external forces are applied
+case_single = 3 # [1, 2, 3, 4] on which link is the force applied
+case_double = 14 # [14, 24, 34, 44] on which link is the force applied
+
+# SINGLE FORCE CASE
+if num_forces ==1 and case_single == 1:
+    bool_f1 = True
+    bool_f2 = False
+    bool_f3 = False
+    bool_f4 = False
+    F1_ext = F1_ext_
+    P1_ext = P1_ext_
+elif num_forces ==1 and case_single == 2:
+    bool_f1 = False
+    bool_f2 = True
+    bool_f3 = False
+    bool_f4 = False
+    F2_ext = F2_ext_
+    P2_ext = P2_ext_
+elif num_forces ==1 and case_single == 3:
+    bool_f1 = False
+    bool_f2 = False
+    bool_f3 = True
+    bool_f4 = False
+    F3_ext = F3_ext_
+    P3_ext = P3_ext_
+elif num_forces ==1 and case_single == 4:
+    bool_f1 = False
+    bool_f2 = False
+    bool_f3 = False
+    bool_f4 = True
+    F4_ext = F4_ext_
+    P4_ext = P4_ext_    
+
+# DOUBLE FORCE CASE
+if num_forces ==2 and case_double == 14:
+    bool_f1 = True
+    bool_f2 = False
+    bool_f3 = False
+    bool_f4 = True
+    F1_ext = F1_ext_
+    P1_ext = P1_ext_
+    F4_ext = F4_ext_
+    P4_ext = P4_ext_
+elif num_forces ==2 and case_double == 24:
+    bool_f1 = False
+    bool_f2 = True
+    bool_f3 = False
+    bool_f4 = True
+    F2_ext = F2_ext_
+    P2_ext = P2_ext_
+    F4_ext = F4_ext_
+    P4_ext = P4_ext_
+elif num_forces ==2 and case_double == 34:
+    bool_f1 = False
+    bool_f2 = False
+    bool_f3 = True
+    bool_f4 = True
+    F3_ext = F3_ext_
+    P3_ext = P3_ext_
+    F4_ext = F4_ext_
+    P4_ext = P4_ext_
+elif num_forces ==2 and case_double == 44:
+    bool_f1 = False
+    bool_f2 = False
+    bool_f3 = False
+    bool_f4 = True
+    F4_ext = F4_ext_
+    P4_ext = P4_ext_
+
 
 def rk4_step(q, qd, tau, tau_ext, tau_prime, M, DT):
     """
