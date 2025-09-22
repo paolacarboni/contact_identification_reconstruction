@@ -11,6 +11,7 @@ from residuals import residuals
 from math import pi
 from solve_planar import SolvePlanarSystem
 import sympy as sp
+import time
 
 
 plt.style.use("ggplot")  # ✅ same style as your Anthro3R
@@ -79,12 +80,30 @@ def init_custom_3d():
     ax.set_title("Anthropomorphic 3R Arm")
     return fig, ax
 
-def draw_frame(ax, T, length=0.1):
+def draw_frame(ax, T, length=0.8):
     origin = T.t
     R = T.R
     ax.quiver(*origin, *R[:, 0] * length, color='r', linewidth=1.2)
     ax.quiver(*origin, *R[:, 1] * length, color='g', linewidth=1.2)
     ax.quiver(*origin, *R[:, 2] * length, color='b', linewidth=1.2)
+
+# def draw_frame(ax, T, length=0.5):
+#     origin = T.t
+#     R = T.R
+
+#     # Normalize each axis vector
+#     x_axis = R[:, 0] / np.linalg.norm(R[:, 0]) * length
+#     y_axis = R[:, 1] / np.linalg.norm(R[:, 1]) * length
+#     z_axis = R[:, 2] / np.linalg.norm(R[:, 2]) * length
+
+#     ax.quiver(*origin, *x_axis, color="r", linewidth=1.2)
+#     ax.quiver(*origin, *y_axis, color="g", linewidth=1.2)
+#     ax.quiver(*origin, *z_axis, color="b", linewidth=1.2)
+
+def draw_force(ax, position, force, scale=0.2, color='magenta'):
+    force = np.array(force)
+    force_scaled = force / np.linalg.norm(force) * scale
+    ax.quiver(*position, *force_scaled, color=color, linewidth=2)
 
 def set_axes_equal(ax):
     """Set 3D plot axes to equal scale so that arrows are not distorted."""
@@ -124,6 +143,7 @@ def update_custom_3d(ax, robot, q):
         ys.append(p[1])
         zs.append(p[2])
         draw_frame(ax, T, length=0.3)
+        draw_force(ax, p, T.c, scale=0.1, color='magenta')
     ax.plot(xs, ys, zs, '-o', color='royalblue', markersize=4, linewidth=2)
     ax.scatter(xs[-1], ys[-1], zs[-1], color='red', s=80, edgecolors='k')
     set_axes_equal(ax)
@@ -172,10 +192,16 @@ def update_custom_3d(ax, robot, q, reach, margin):
         ys.append(p[1])
         zs.append(p[2])
         draw_frame(ax, T)
+        draw_force(ax, p, T.c, scale=0.1, color="magenta")
     ax.plot(xs, ys, zs, "-o", color="royalblue", markersize=6, linewidth=2)
     ax.scatter(xs[-1], ys[-1], zs[-1], color="red", s=80, edgecolors="k")
     plt.pause(0.001)
 
+def get_base_to_link_transformation(robot, q):
+    Ts = robot.fkine_all(q)
+    return Ts
+
+print('get_base_to_link_transformation: ', get_base_to_link_transformation(robot, [0,0,0,0]))
 
 # ---------------- Run animation -------------- #
 # if __name__ == "__main__":
@@ -208,13 +234,17 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = .3
+T  = 0.0001
 Kp = 30 * np.diag([1, 1, 1,1 ])
 Kd = 30 * np.diag([1, 1, 1, 1])
 K_0 = 20 * np.diag([1, 1, 1, 1]) # residual gain
 
-q0 = np.array([0, 0, 0, 0])
-qf = np.array([0, 0, 0, 0])
+q0 = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+qf = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+
+#q0 = np.array([0, 0, 0, 0])
+#qf = np.array([0, 0, 0, 0])
+
 
 time = np.arange(0, T, DT)
 N = len(time)
@@ -236,12 +266,30 @@ tau_log = np.zeros((N, n))
 tau_prime_log = np.zeros((N, n))
 tau_ext_log = np.zeros((N, n))
 res_log = np.zeros((N, n))
+Fx_tot_log = np.zeros(N)
+Fy_tot_log = np.zeros(N)
+Fa_x_gt = 0
+Fa_y_gt = 0
+Fb_x_gt = 0
+Fb_y_gt = 0
+
 
 # reconstructed values, single contact force
 F_x_log = np.zeros(N)
 F_y_log = np.zeros(N)
 l_log = np.zeros(N)
 
+# for double contact
+Fa_x_log = np.zeros(N)
+Fa_y_log = np.zeros(N)
+la_bar_log = np.zeros(N)
+
+Fb_x_log = np.zeros(N)
+Fb_y_log = np.zeros(N)
+lb_bar_log = np.zeros(N)
+
+
+F_ext_ee = np.array([0,0,0, 0, 0, 0])
 #F_ext_ee = np.array([0,0,-30, 0, 0, 0])
 
 fext_links = np.zeros((n, 3), dtype=np.float64)
@@ -269,28 +317,28 @@ F4_ext = np.array([0, 0, 0])
 P4_ext = np.array([0, 0, 0])
 
 # valori nominali di forze esterne e punti di contatto 
-F1_ext_ = np.array([0,-100, 0])
+F1_ext_ = np.array([0, -100, 0])
 P1_ext_ = np.array([-0.1,0,0])
 
-F2_ext_ = np.array([0,-100, 0])
+F2_ext_ = np.array([0,500, 0])
 P2_ext_ = np.array([-0.1,0,0])
 
-F3_ext_ = np.array([0,-100,0])
+F3_ext_ = np.array([0,400,0])
 P3_ext_ = np.array([-0.1,0,0])
 
-F4_ext_ = np.array([0,-100,0])
+F4_ext_ = np.array([0,-200,0])
 P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([0.1, 0.98])
-time_interval_2 = np.array([0.2, 0.3])
-time_interval_3 = np.array([0.2, .3])
-time_interval_4 = np.array([1.2, 1.5])
+time_interval_1 = np.array([1.0, 1.5])
+time_interval_2 = np.array([0.2, 0.6])
+time_interval_3 = np.array([0.1, 0.2])
+time_interval_4 = np.array([1.0, 1.5])
 
 #case for single force applied
-num_forces = 1 #[1, 2] how many external forces are applied
+num_forces = 2 #[1, 2] how many external forces are applied
 case_single = 3 # [1, 2, 3, 4] on which link is the force applied
-case_double = 34 # [14, 24, 34, 44] on which link is the force applied
+case_double = 14 # [14, 24, 34, 44] on which link is the force applied
 
 if num_forces == 1: 
     case = case_single
@@ -405,6 +453,9 @@ solver = SolvePlanarSystem(num_forces, case)
 # --------------------------
 # Simulation loop
 # --------------------------
+
+debug_Fa = False
+debug_Fb = False
 ANIMATE = False#
 if ANIMATE:
     fig, ax = init_custom_3d()
@@ -427,6 +478,9 @@ for k, t in enumerate(time):
     if bool_f1 and t > time_interval_1[0] and t < time_interval_1[1]:
         fext_links[0] = F1_ext
         pext_links[0] = P1_ext
+        if num_forces == 2 and debug_Fa == True:
+            Fa_x_gt = F1_ext[0]
+            Fa_y_gt = F1_ext[1]
     else:
         fext_links[0] = np.zeros(3)
         pext_links[0] = np.zeros(3)
@@ -434,6 +488,9 @@ for k, t in enumerate(time):
     if bool_f2 and t > time_interval_2[0] and t < time_interval_2[1]:
         fext_links[1] = F2_ext
         pext_links[1] = P2_ext
+        if num_forces == 2 and debug_Fa == True:
+            Fa_x_gt = F2_ext[0]
+            Fa_y_gt = F2_ext[1]
     else:
         fext_links[1] = np.zeros(3)
         pext_links[1] = np.zeros(3)
@@ -441,12 +498,18 @@ for k, t in enumerate(time):
     if bool_f3 and t > time_interval_3[0] and t < time_interval_3[1]:
         fext_links[2] = F3_ext
         pext_links[2] = P3_ext
+        if num_forces == 2 and debug_Fa == True:
+            Fa_x_gt = F3_ext[0]
+            Fa_y_gt = F3_ext[1]
     else:
         fext_links[2] = np.zeros(3)
         pext_links[2] = np.zeros(3)
     if bool_f4 and t > time_interval_4[0] and t < time_interval_4[1]:
         fext_links[3] = F4_ext
         pext_links[3] = P4_ext
+        if num_forces == 2 and debug_Fb == True:
+            Fb_x_gt = F4_ext[0]
+            Fb_y_gt = F4_ext[1]
     else:
         fext_links[3] = np.zeros(3)
         pext_links[3] = np.zeros(3)
@@ -455,6 +518,9 @@ for k, t in enumerate(time):
     totals = fext_array.sum(axis=0)
     Fx_tot = totals[0]
     Fy_tot = totals[1]
+
+
+
     # Forward dynamics
     #M = robot.inertia(q)
     #C = robot.coriolis(q, qd)
@@ -493,7 +559,7 @@ for k, t in enumerate(time):
     #print('tau tot, fext != 0')
     tau_tot = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links, pext_links = pext_links)
     tau_no_forces = robot.rne(q, qd, qdd, gravity = g_0, fext_links = fext_links_zeros, pext_links = pext_links_zeros) #fext_links = fext_links_zeros
-    tau_ext = -(tau_tot - tau_no_forces)
+    tau_ext = (tau_tot - tau_no_forces)
     #print('tau_ext', tau_ext)
 
 
@@ -527,49 +593,83 @@ for k, t in enumerate(time):
     res, p_hat = residuals.momentum_residuals(robot, q, qd, tau, tau_prime, M, M_dot, K_0, p_hat, res, DT)
     #print('residuals: ', res)
 
+    solve = True # flag to solve the system or not
+    if solve == True:
     # SOLVE THE SYSTEM 
-    # SINGLE CASE
+        # SINGLE CASE
 
-    knowns = {
-    solver.F_tot_x: Fx_tot,     # known total force x
-    solver.F_tot_y: Fy_tot,      # known total force y
-    solver.q1: q[0],      # orientation
-    solver.q2: q[1],
-    solver.q3: q[2],
-    solver.q4: q[3],
-    solver.l1 : link_lengths[0],
-    solver.l2 : link_lengths[1],
-    solver.l3 : link_lengths[2],
-    solver.l4 : link_lengths[3]
-    }
+        knowns = {
+        solver.F_tot_x: Fx_tot,     # known total force x
+        solver.F_tot_y: Fy_tot,      # known total force y
+        solver.q1: q[0],      # orientation
+        solver.q2: q[1],
+        solver.q3: q[2],
+        solver.q4: q[3],
+        solver.l1 : link_lengths[0],
+        solver.l2 : link_lengths[1],
+        solver.l3 : link_lengths[2],
+        solver.l4 : link_lengths[3]
+        }
 
-    # Add taus only if conditions are met
-    if case_single >= 1:
-        knowns[solver.tau_1] = res[0]
-    if case_single >= 2:
-        knowns[solver.tau_2] = res[1]
-    if case_single >= 3:
-        knowns[solver.tau_3] = res[2]
-    if case_single >= 4:
-        knowns[solver.tau_4] = res[3]
+        # Add taus only if conditions are met
+        if num_forces == 1 and case_single >= 1:
+            knowns[solver.tau_1] = res[0]
+        if num_forces == 1 and case_single >= 2:
+            knowns[solver.tau_2] = res[1]
+        if num_forces == 1 and case_single >= 3:
+            knowns[solver.tau_3] = res[2]
+        if num_forces == 1 and case_single >= 4:
+            knowns[solver.tau_4] = res[3]
+        if num_forces == 2:
+            knowns[solver.tau_1] = res[0]
+            knowns[solver.tau_2] = res[1]
+            knowns[solver.tau_3] = res[2]
+            knowns[solver.tau_4] = res[3]
+            if debug_Fa == True: 
+                knowns[solver.Fa_x] = Fa_x_gt
+                knowns[solver.Fa_y] = Fa_y_gt
+            if debug_Fb == True:
+                knowns[solver.Fb_x] = Fb_x_gt
+                knowns[solver.Fb_y] = Fb_y_gt
 
-    print('q1', q[0])
-    solution = solver.solve(knowns)
-    print('solution: ', solution)
-    if solution:  # se esiste almeno una soluzione
-        sol = solution[0]
-        F_x_val = sol.get(solver.F_x, None)
-        F_y_val = sol.get(solver.F_y, None)
-        l_val   = sol.get(solver.l_bar, None)
-        F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
+
+
+        #elif case == 'ca'
+
+        #print('q1', q[0])
+        if num_forces == 1:
+            solution = solver.solve(knowns)
+            #print('solution: ', solution)
+        elif num_forces == 2 and case == 14:
+            solution = solver.block_solve_14(knowns)
+            print('solution: ', solution)
+
+       # print('solution: ', solution)
+        if solution:  # se esiste almeno una soluzione
+            sol = solution[0]
+            if num_forces == 1:
+                sol = solution[0]
+                F_x_val = sol.get(solver.F_x, None)
+                F_y_val = sol.get(solver.F_y, None)
+                l_val   = sol.get(solver.l_bar, None)
+                F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
+            if num_forces == 2:
+                Fa_x_val = sol.get(solver.Fa_x, None)
+                Fa_y_val = sol.get(solver.Fa_y, None)
+                Fb_x_val = sol.get(solver.Fb_x, None)
+                Fb_y_val = sol.get(solver.Fb_y, None)
+                la_bar_val   = sol.get(solver.la_bar, None)
+                lb_bar_val   = sol.get(solver.lb_bar, None)
+                Fa_x_log[k], Fa_y_log[k], Fb_x_log[k], Fb_y_log[k], la_bar_log[k], lb_bar_log[k] = Fa_x_val, Fa_y_val, Fb_x_val, Fb_y_val, la_bar_val, lb_bar_val
+                #Fb_x_log[k], Fb_y_log[k], la_bar_log[k], lb_bar_log[k] =  Fb_x_val, Fb_y_val, la_bar_val, lb_bar_val
+
     # assegni ai tuoi log
     #F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
     # Log
-    q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k] = q, qd, tau, tau_prime, res, tau_ext
+    q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k], Fx_tot_log[k], Fy_tot_log[k] = q, qd, tau, tau_prime, res, tau_ext, Fx_tot, Fy_tot
 
     if ANIMATE:
         update_custom_3d(ax, robot, q, reach = 2, margin=.4)
-
 
 
 # -------------------------
@@ -621,29 +721,87 @@ plt.xlabel("Time [s]")
 plt.ylabel("tau_ext [Nm]")
 plt.legend([f"tau_ext{i+1}" for i in range(n)])
 
-plt.figure()
-plt.plot(time, F_x_log)
-plt.title("F_x")
-plt.xlabel("Time [s]")
-plt.ylabel("F_x [Nm]")
-plt.legend([f"F_x{i+1}" for i in range(n)])
+if num_forces == 1:
+    plt.figure()
+    plt.plot(time, F_x_log)
+    plt.title("F_x")
+    plt.xlabel("Time [s]")
+    plt.ylabel("F_x [Nm]")
+    plt.legend([f"F_x{i+1}" for i in range(n)])
 
-plt.figure()
-plt.plot(time, F_y_log)
-plt.title("F_y")
-plt.xlabel("Time [s]")
-plt.ylabel("F_y [Nm]")
-plt.legend([f"F_y{i+1}" for i in range(n)])
+    plt.figure()
+    plt.plot(time, F_y_log)
+    plt.title("F_y")
+    plt.xlabel("Time [s]")
+    plt.ylabel("F_y [Nm]")
+    plt.legend([f"F_y{i+1}" for i in range(n)])
 
-plt.figure()
-plt.plot(time, l_log)
-plt.title("l")
-plt.xlabel("Time [s]")
-plt.ylabel("l [Nm]")
-plt.legend([f"l{i+1}" for i in range(n)])
+    plt.figure()
+    plt.plot(time, l_log)
+    plt.title("l")
+    plt.xlabel("Time [s]")
+    plt.ylabel("l [Nm]")
+    plt.legend([f"l{i+1}" for i in range(n)])
+
+if num_forces == 2:
+    plt.figure()
+    plt.plot(time, Fa_x_log)
+    plt.title("Fa_x")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Fa_x [Nm]")
+    plt.legend([f"Fa_x{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, Fa_y_log)
+    plt.title("Fa_y")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Fa_y [Nm]")
+    plt.legend([f"Fa_y{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, Fb_x_log)
+    plt.title("Fb_x")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Fb_x [Nm]")
+    plt.legend([f"Fb_x{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, Fb_y_log)
+    plt.title("Fb_y")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Fb_y [Nm]")
+    plt.legend([f"Fb_y{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, la_bar_log)
+    plt.title("la_bar")
+    plt.xlabel("Time [s]")
+    plt.ylabel("la_bar [Nm]")
+    plt.legend([f"la_bar{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, lb_bar_log)
+    plt.title("lb_bar")
+    plt.xlabel("Time [s]")
+    plt.ylabel("lb_bar [Nm]")
+    plt.legend([f"lb_bar{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, Fx_tot_log)
+    plt.title("Fx_tot")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Fx_tot [Nm]")
+    plt.legend([f"Fx_tot{i+1}" for i in range(n)])
+
+    plt.figure()
+    plt.plot(time, Fy_tot_log)
+    plt.title("Fy_tot")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Fy_tot [Nm]")
+    plt.legend([f"Fy_tot{i+1}" for i in range(n)])
 
 plt.show()
-plt.show(block=False)
+#plt.show(block=False)
 plt.pause(4) # Pause for interval seconds.
 input("hit[enter] to end.")
 plt.close('all') # all open plots are correctly closed after each run
