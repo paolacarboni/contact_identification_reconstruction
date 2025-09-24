@@ -12,9 +12,11 @@ from math import pi
 from solve_planar import SolvePlanarSystem
 import sympy as sp
 import time
+from mpl_toolkits.mplot3d.art3d import Line3D
 
 
 plt.style.use("ggplot")  # ✅ same style as your Anthro3R
+#plt.style.use("default") 
 
 class Planar_4r:
     def __init__(self, link_lengths, link_masses, link_radiuses):
@@ -73,19 +75,83 @@ def init_custom_3d():
     ax = fig.add_subplot(111, projection='3d')
     ax.set_xlim([-3, 3])
     ax.set_ylim([-3, 3])
-    ax.set_zlim([0, 2])
+    ax.set_zlim([-3, 3])
     ax.set_xlabel("X [m]")
     ax.set_ylabel("Y [m]")
     ax.set_zlabel("Z [m]")
     ax.set_title("Anthropomorphic 3R Arm")
     return fig, ax
 
-def draw_frame(ax, T, length=0.8):
+# def draw_frame(ax, T, length=0.2):
+#     origin = T.t
+#     R = T.R
+#     ax.quiver(*origin, *R[:, 0] * length, color='r', linewidth=1.2)
+#     ax.quiver(*origin, *R[:, 1] * length, color='g', linewidth=1.2)
+#     ax.quiver(*origin, *R[:, 2] * length, color='b', linewidth=1.2)
+#     set_axes_equal(ax)
+
+######
+# def draw_arrow(ax, start, vec, color='r', lw=2):
+#     end = start + vec
+#     line = Line3D([start[0], end[0]],
+#                   [start[1], end[1]],
+#                   [start[2], end[2]],
+#                   color=color, linewidth=lw)
+#     ax.add_line(line)
+
+# def draw_frame_fixed(ax, T, length=0.2):
+#     origin = T.t
+#     R = T.R
+
+#     for i, color in zip(range(3), ['r','g','b']):
+#         vec = R[:, i] * length/[1, 1, 35]
+#         draw_arrow(ax, origin, vec, color=color)
+
+        ########
+
+def draw_arrow(ax, start, vec, color='r', lw=2):
+    end = start + vec
+    line = Line3D([start[0], end[0]],
+                  [start[1], end[1]],
+                  [start[2], end[2]],
+                  color=color, linewidth=lw)
+    ax.add_line(line)
+
+# def draw_frame(ax, T, scale = 0.05):
+#     origin = T.t
+#     R = T.R
+#     length = scale
+#     for i, color in zip(range(3), ['r', 'g', 'b']):
+#         vec = R[:, i] * length
+#         draw_arrow(ax, origin, vec, color=color)
+#         # vec = R[:, i] / np.linalg.norm(R[:, i]) * length
+#         # draw_arrow(ax, origin, vec, color=color)
+#         # 
+
+def draw_frame(ax, T, length=0.01):
     origin = T.t
     R = T.R
-    ax.quiver(*origin, *R[:, 0] * length, color='r', linewidth=1.2)
-    ax.quiver(*origin, *R[:, 1] * length, color='g', linewidth=1.2)
-    ax.quiver(*origin, *R[:, 2] * length, color='b', linewidth=1.2)
+
+    # Get axis ranges
+    x_range = ax.get_xlim3d()[1] - ax.get_xlim3d()[0]
+    y_range = ax.get_ylim3d()[1] - ax.get_ylim3d()[0]
+    z_range = ax.get_zlim3d()[1] - ax.get_zlim3d()[0]
+
+    max_range = max(x_range, y_range, z_range)
+
+    # Scale uniformly based on max range
+    scale = length / max_range
+
+    scaling_factors = np.array([x_range, y_range, z_range]) * length # normalizzazione per avere tutte frecce della stessa lunghezza
+    #scaling_factors = np.array([0.5, 0.5, 0.01])
+    for i, color in zip(range(3), ['r', 'g', 'b']):
+        vec = R[:, i] * scaling_factors
+        #draw_arrow(ax, origin, vec, color=color) 
+        draw_arrow_with_head(ax, origin, vec, color=color)
+
+def draw_arrow_with_head(ax, start, vec, color='r', lw=1.5, arrow_length_ratio=0.05):
+    ax.quiver(*start, *vec, color=color, linewidth=lw, arrow_length_ratio=arrow_length_ratio, normalize=False) 
+
 
 # def draw_frame(ax, T, length=0.5):
 #     origin = T.t
@@ -125,29 +191,29 @@ def set_axes_equal(ax):
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
-def update_custom_3d(ax, robot, q):
-    ax.cla()
-    ax.set_xlim([-3, 3])
-    ax.set_ylim([-3, 3])
-    ax.set_zlim([0, 0.2])
-    ax.set_xlabel("X [m]")
-    ax.set_ylabel("Y [m]")
-    ax.set_zlabel("Z [m]")
-    ax.set_title("Anthropomorphic 3R Arm")
+# def update_custom_3d(ax, robot, q):
+#     ax.cla()
+#     ax.set_xlim([-3, 3])
+#     ax.set_ylim([-3, 3])
+#     ax.set_zlim([-3, 3])
+#     ax.set_xlabel("X [m]")
+#     ax.set_ylabel("Y [m]")
+#     ax.set_zlabel("Z [m]")
+#     ax.set_title("Anthropomorphic 3R Arm")
 
-    Ts = robot.fkine_all(q)
-    xs, ys, zs = [], [], []
-    for T in Ts:
-        p = T.t
-        xs.append(p[0])
-        ys.append(p[1])
-        zs.append(p[2])
-        draw_frame(ax, T, length=0.3)
-        draw_force(ax, p, T.c, scale=0.1, color='magenta')
-    ax.plot(xs, ys, zs, '-o', color='royalblue', markersize=4, linewidth=2)
-    ax.scatter(xs[-1], ys[-1], zs[-1], color='red', s=80, edgecolors='k')
-    set_axes_equal(ax)
-    plt.pause(0.001)
+#     Ts = robot.fkine_all(q)
+#     xs, ys, zs = [], [], []
+#     for T in Ts:
+#         p = T.t
+#         xs.append(p[0])
+#         ys.append(p[1])
+#         zs.append(p[2])
+#         draw_frame(ax, T, length=0.3)
+#         draw_force(ax, p, T.c, scale=0.1, color='magenta')
+#     ax.plot(xs, ys, zs, '-o', color='royalblue', markersize=4, linewidth=2)
+#     ax.scatter(xs[-1], ys[-1], zs[-1], color='red', s=80, edgecolors='k')
+#     set_axes_equal(ax)
+#     plt.pause(0.001)
 
 link_lengths = [0.5, 0.5, 0.5, 0.5]
 link_masses  = [5, 5, 5, 5]
@@ -166,19 +232,20 @@ fig, ax = init_custom_3d()
 #     update_custom_3d(ax, robot, q)
 
 
-def draw_frame(ax, T, length=0.05):
-    origin = T.t
-    R = T.R
-    ax.quiver(*origin, *R[:, 0] * length, color="r", linewidth=1.2)
-    ax.quiver(*origin, *R[:, 1] * length, color="g", linewidth=1.2)
-    ax.quiver(*origin, *R[:, 2] * length, color="b", linewidth=1.2)
+# def draw_frame(ax, T, reach, upper_limit, length=0.1):
+#     origin = T.t
+#     R = T.R
+#     ax.quiver(*origin, *R[:, 0] * length*reach, color="r", linewidth=1.2, arrow_length_ratio=0.02)
+#     ax.quiver(*origin, *R[:, 1] * length*reach, color="g", linewidth=1.2, arrow_length_ratio=0.02)
+#     ax.quiver(*origin, *R[:, 2] * length/6, color="b", linewidth=1.2, arrow_length_ratio=0.7)
 
 
-def update_custom_3d(ax, robot, q, reach, margin):
+def update_custom_3d(ax, robot, q, reach, margin, time_value = None):
+    upper_limit = 0.2
     ax.cla()
     ax.set_xlim([-reach - margin, reach + margin])
     ax.set_ylim([-reach - margin, reach + margin])
-    ax.set_zlim([-0.0, 0.5])
+    ax.set_zlim([0, upper_limit])
     ax.set_xlabel("X [m]")
     ax.set_ylabel("Y [m]")
     ax.set_zlabel("Z [m]")
@@ -191,10 +258,13 @@ def update_custom_3d(ax, robot, q, reach, margin):
         xs.append(p[0])
         ys.append(p[1])
         zs.append(p[2])
-        draw_frame(ax, T)
-        draw_force(ax, p, T.c, scale=0.1, color="magenta")
+        draw_frame(ax, T, length = 0.05)
+        #draw_force(ax, p, T.c, scale=0.1, color="magenta")
     ax.plot(xs, ys, zs, "-o", color="royalblue", markersize=6, linewidth=2)
     ax.scatter(xs[-1], ys[-1], zs[-1], color="red", s=80, edgecolors="k")
+    if time_value is not None:
+        ax.text2D(0.05, 0.95, f"Time: {time_value:.2f} s", transform=ax.transAxes, fontsize=12, color='black')
+    #set_axes_equal(ax)
     plt.pause(0.001)
 
 def get_base_to_link_transformation(robot, q):
@@ -234,7 +304,7 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 0.0001
+T  = 2
 Kp = 30 * np.diag([1, 1, 1,1 ])
 Kd = 30 * np.diag([1, 1, 1, 1])
 K_0 = 20 * np.diag([1, 1, 1, 1]) # residual gain
@@ -273,6 +343,8 @@ Fa_y_gt = 0
 Fb_x_gt = 0
 Fb_y_gt = 0
 
+# rotation matrices 
+R = np.zeros((n, 3, 3))
 
 # reconstructed values, single contact force
 F_x_log = np.zeros(N)
@@ -317,7 +389,7 @@ F4_ext = np.array([0, 0, 0])
 P4_ext = np.array([0, 0, 0])
 
 # valori nominali di forze esterne e punti di contatto 
-F1_ext_ = np.array([0, -100, 0])
+F1_ext_ = np.array([0, 400, 0])
 P1_ext_ = np.array([-0.1,0,0])
 
 F2_ext_ = np.array([0,500, 0])
@@ -330,14 +402,15 @@ F4_ext_ = np.array([0,-200,0])
 P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([1.0, 1.5])
+time_interval_1 = np.array([0.3, 1.5])
 time_interval_2 = np.array([0.2, 0.6])
 time_interval_3 = np.array([0.1, 0.2])
-time_interval_4 = np.array([1.0, 1.5])
+time_interval_4 = np.array([0.5, 1.0])
 
+fext_base_array = np.zeros((n, 3), dtype=np.float64)
 #case for single force applied
-num_forces = 2 #[1, 2] how many external forces are applied
-case_single = 3 # [1, 2, 3, 4] on which link is the force applied
+num_forces =  1   #[1, 2] how many external forces are applied
+case_single = 1 # [1, 2, 3, 4] on which link is the force applied
 case_double = 14 # [14, 24, 34, 44] on which link is the force applied
 
 if num_forces == 1: 
@@ -456,7 +529,7 @@ solver = SolvePlanarSystem(num_forces, case)
 
 debug_Fa = False
 debug_Fb = False
-ANIMATE = False#
+ANIMATE = True#
 if ANIMATE:
     fig, ax = init_custom_3d()
 
@@ -465,6 +538,11 @@ for k, t in enumerate(time):
     #print('entered enumerate time')
     q_ref, qd_ref, qdd_ref = q_d[k], qd_d[k], qdd_d[k]
     e, edot = q_ref - q, qd_ref - qd
+
+    # initialization of the contact lengths
+    l_log[k] = 0
+    la_bar_log[k] = 0
+    lb_bar_log[k] = 0
 
     # Newton–Euler feedforward + PD feedback
     #tau_ff = robot.rne(q_ref, qd_ref, qdd_ref, gravity = g_0, ext_forces=Fe, ext_moments=Ne, ext_points=Re)
@@ -515,9 +593,10 @@ for k, t in enumerate(time):
         pext_links[3] = np.zeros(3)
 
     fext_array = np.array(fext_links)
-    totals = fext_array.sum(axis=0)
-    Fx_tot = totals[0]
-    Fy_tot = totals[1]
+    print('fext_array', fext_array)
+    # totals = fext_array.sum(axis=0)
+    # Fx_tot = totals[0]
+    # Fy_tot = totals[1]
 
 
 
@@ -586,12 +665,27 @@ for k, t in enumerate(time):
     #q = q + qd * DT
     q, qd = rk4_step(q, qd, tau, tau_ext, tau_prime, M, DT)
 
-    J = robot.fkine_all(q)
-    tau_ext_th = J
-
     # momentum residuals 
     res, p_hat = residuals.momentum_residuals(robot, q, qd, tau, tau_prime, M, M_dot, K_0, p_hat, res, DT)
     #print('residuals: ', res)
+
+     # transform the forces in the base frame 
+    Ts = get_base_to_link_transformation(robot, q)
+
+    for i in range(n):
+        print('i', i)
+        T_i = Ts[i+1]          # omogenea base -> link
+        R[i] = T_i.R  # matrice di rotazione
+        f_link = fext_array[i]
+        f_base = R[i] @ f_link
+        fext_base_array[i] = f_base
+
+    totals = fext_base_array.sum(axis=0)
+    Fx_tot = totals[0]
+    Fy_tot = totals[1]
+    #print('Fx_tot_base: ', Fx_tot)
+    #print('Fy_tot_base: ', Fy_tot)
+
 
     solve = True # flag to solve the system or not
     if solve == True:
@@ -636,30 +730,47 @@ for k, t in enumerate(time):
 
         #elif case == 'ca'
 
-        #print('q1', q[0])
+        # #print('q1', q[0])
         if num_forces == 1:
             solution = solver.solve(knowns)
             #print('solution: ', solution)
         elif num_forces == 2 and case == 14:
             solution = solver.block_solve_14(knowns)
+            sol = solution[0]
             print('solution: ', solution)
+            Fa_sol_base = [sol.get(solver.Fa_x), sol.get(solver.Fa_y), 0] # ho trovato la forza nel frame della base
+            Fb_sol_base = [sol.get(solver.Fb_x), sol.get(solver.Fb_y), 0]
+            la_bar_base = sol.get(solver.la_bar)
+            lb_bar_base = sol.get(solver.lb_bar)
+            if case == 14:
+                Fa_sol_link = R[0].T @ Fa_sol_base
+                Fb_sol_link = R[3].T @ Fb_sol_base
+
+            #print('Fa_sol_link: ', Fa_sol_link)
+            #print('Fb_sol_link: ', Fb_sol_link)
 
        # print('solution: ', solution)
         if solution:  # se esiste almeno una soluzione
             sol = solution[0]
             if num_forces == 1:
                 sol = solution[0]
-                F_x_val = sol.get(solver.F_x, None)
+                F_x_val = sol.get(solver.F_x, 0)
                 F_y_val = sol.get(solver.F_y, None)
-                l_val   = sol.get(solver.l_bar, None)
+                l_val   = sol.get(solver.l_bar, 0)
                 F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
             if num_forces == 2:
-                Fa_x_val = sol.get(solver.Fa_x, None)
-                Fa_y_val = sol.get(solver.Fa_y, None)
-                Fb_x_val = sol.get(solver.Fb_x, None)
-                Fb_y_val = sol.get(solver.Fb_y, None)
-                la_bar_val   = sol.get(solver.la_bar, None)
-                lb_bar_val   = sol.get(solver.lb_bar, None)
+                #Fa_x_val = sol.get(solver.Fa_x, None)
+                #Fa_y_val = sol.get(solver.Fa_y, None)
+                #Fb_x_val = sol.get(solver.Fb_x, None)
+                #Fb_y_val = sol.get(solver.Fb_y, None)
+                Fa_x_val = Fa_sol_link[0]
+                Fa_y_val = Fa_sol_link[1]
+                Fb_x_val = Fb_sol_link[0]
+                Fb_y_val = Fb_sol_link[1]
+                la_bar_val   = sol.get(solver.la_bar, 0)
+                lb_bar_val   = sol.get(solver.lb_bar, 0)
+                print('Fa_x_val : ', Fa_x_val)
+                #Fa_x_log[k] = Fa_x_val
                 Fa_x_log[k], Fa_y_log[k], Fb_x_log[k], Fb_y_log[k], la_bar_log[k], lb_bar_log[k] = Fa_x_val, Fa_y_val, Fb_x_val, Fb_y_val, la_bar_val, lb_bar_val
                 #Fb_x_log[k], Fb_y_log[k], la_bar_log[k], lb_bar_log[k] =  Fb_x_val, Fb_y_val, la_bar_val, lb_bar_val
 
@@ -669,7 +780,8 @@ for k, t in enumerate(time):
     q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k], Fx_tot_log[k], Fy_tot_log[k] = q, qd, tau, tau_prime, res, tau_ext, Fx_tot, Fy_tot
 
     if ANIMATE:
-        update_custom_3d(ax, robot, q, reach = 2, margin=.4)
+        update_custom_3d(ax, robot, q, reach = 2, margin=.4, time_value = t)
+        #ax.text(0.5, 0.5, 0.5 + 0.2, f"Time: {t:.2f} s", fontsize=12, color='black')
 
 
 # -------------------------
@@ -679,19 +791,25 @@ labels_q = [f"q{i+1}" for i in range(n)]
 labels_qd = [f"q̇{i+1}" for i in range(n)]
 
 
-plt.figure()
+plt.figure(facecolor='white')
+# ax = fig.add_subplot(111)
+# ax.set_facecolor("white")
 plt.plot(time, q_log[:, :3])
 plt.title("Anthro 3R Joint Angles")
 plt.xlabel("Time [s]")
 plt.ylabel("q [rad]")
 plt.legend(labels_q)
+ax.grid(True)
 
-plt.figure()
+plt.figure(facecolor='white')
+# ax = fig.add_subplot(111)
+# ax.set_facecolor("white")
 plt.plot(time, qd_log)
 plt.title("Anthro 3R Joint Velocities")
 plt.xlabel("Time [s]")
 plt.ylabel("q̇ [rad/s]")
 plt.legend(labels_qd)
+ax.grid(True)
 
 # plt.figure()
 # plt.plot(time, tau_log)
@@ -707,19 +825,25 @@ plt.legend(labels_qd)
 # plt.ylabel("tau_prime [Nm]")
 # plt.legend([f"tau_prime{i+1}" for i in range(n)])
 
-plt.figure()
+plt.figure(facecolor='white')
+# ax = fig.add_subplot(111)
+# ax.set_facecolor("white")
 plt.plot(time, res_log)
 plt.title("Momentum Residuals")
 plt.xlabel("Time [s]")
 plt.ylabel("res [Nm]")
 plt.legend([f"res{i+1}" for i in range(n)])
+ax.grid(True)
 
-plt.figure()
+plt.figure(facecolor='white')
+# ax = fig.add_subplot(111)
+# ax.set_facecolor("white")
 plt.plot(time, tau_ext_log)
 plt.title("tau_ext")
 plt.xlabel("Time [s]")
 plt.ylabel("tau_ext [Nm]")
 plt.legend([f"tau_ext{i+1}" for i in range(n)])
+ax.grid(True)
 
 if num_forces == 1:
     plt.figure()
@@ -728,6 +852,7 @@ if num_forces == 1:
     plt.xlabel("Time [s]")
     plt.ylabel("F_x [Nm]")
     plt.legend([f"F_x{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, F_y_log)
@@ -735,6 +860,7 @@ if num_forces == 1:
     plt.xlabel("Time [s]")
     plt.ylabel("F_y [Nm]")
     plt.legend([f"F_y{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, l_log)
@@ -742,49 +868,63 @@ if num_forces == 1:
     plt.xlabel("Time [s]")
     plt.ylabel("l [Nm]")
     plt.legend([f"l{i+1}" for i in range(n)])
+    ax.grid(True)
 
 if num_forces == 2:
+    y_range = [-200, 10]
     plt.figure()
     plt.plot(time, Fa_x_log)
+    plt.ylim(y_range)
     plt.title("Fa_x")
     plt.xlabel("Time [s]")
     plt.ylabel("Fa_x [Nm]")
     plt.legend([f"Fa_x{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, Fa_y_log)
+    plt.ylim(y_range)
     plt.title("Fa_y")
     plt.xlabel("Time [s]")
     plt.ylabel("Fa_y [Nm]")
     plt.legend([f"Fa_y{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, Fb_x_log)
+    plt.ylim(y_range)
     plt.title("Fb_x")
     plt.xlabel("Time [s]")
     plt.ylabel("Fb_x [Nm]")
     plt.legend([f"Fb_x{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, Fb_y_log)
+    plt.ylim(y_range)
     plt.title("Fb_y")
     plt.xlabel("Time [s]")
     plt.ylabel("Fb_y [Nm]")
     plt.legend([f"Fb_y{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, la_bar_log)
+    plt.ylim([-1, 1])
     plt.title("la_bar")
     plt.xlabel("Time [s]")
     plt.ylabel("la_bar [Nm]")
     plt.legend([f"la_bar{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, lb_bar_log)
+    plt.ylim([-1, 1])
     plt.title("lb_bar")
     plt.xlabel("Time [s]")
     plt.ylabel("lb_bar [Nm]")
     plt.legend([f"lb_bar{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, Fx_tot_log)
@@ -792,6 +932,7 @@ if num_forces == 2:
     plt.xlabel("Time [s]")
     plt.ylabel("Fx_tot [Nm]")
     plt.legend([f"Fx_tot{i+1}" for i in range(n)])
+    ax.grid(True)
 
     plt.figure()
     plt.plot(time, Fy_tot_log)
@@ -799,6 +940,8 @@ if num_forces == 2:
     plt.xlabel("Time [s]")
     plt.ylabel("Fy_tot [Nm]")
     plt.legend([f"Fy_tot{i+1}" for i in range(n)])
+    ax.grid(True)
+
 
 plt.show()
 #plt.show(block=False)
