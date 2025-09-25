@@ -91,6 +91,10 @@ def init_custom_3d():
     ax.set_title("Anthropomorphic 3R Arm")
     return fig, ax
 
+def init_custom_2d():
+    fig, ax = plt.subplots(figsize=(6, 6))
+    return fig, ax
+
 # def draw_frame(ax, T, length=0.2):
 #     origin = T.t
 #     R = T.R
@@ -158,13 +162,83 @@ def draw_frame(ax, T, length=0.01):
         #draw_arrow(ax, origin, vec, color=color) 
         draw_arrow_with_head(ax, origin, vec, color=color)
 
+def draw_frame_2d(ax, T, length=None):
+    Tmat = T.A  # Convert SE3 to NumPy array
+    origin = T.t #Tmat[0:2, 3]
+    print('origin: ', origin)
+    R = T.R #Tmat[0:2, 0:2]
+    print('R: ', R)
+
+    # Get axis ranges for visual scaling
+    # x_range = ax.get_xlim()[1] - ax.get_xlim()[0]
+    # y_range = ax.get_ylim()[1] - ax.get_ylim()[0]
+    # max_range = max(x_range, y_range)
+    # scale = length / max_range
+    scale = 0.3
+    x_axis = R[:, 0] * scale
+    y_axis = R[:, 1] * scale
+    # ax.arrow(origin[0], origin[1], x_axis[0], x_axis[1],
+    #          head_width=0.02, color='r', length_includes_head=True)
+    # ax.arrow(origin[0], origin[1], y_axis[0], y_axis[1],
+    #          head_width=0.02, color='g', length_includes_head=True)
+    draw_arrow_with_head_2d(ax, origin, x_axis, color='r')
+    draw_arrow_with_head_2d(ax, origin, y_axis, color='g')
+
 def draw_arrow_with_head(ax, start, vec, color='r', lw=1.5, arrow_length_ratio=0.05):
     ax.quiver(*start, *vec, color=color, linewidth=lw, arrow_length_ratio=arrow_length_ratio, normalize=False) 
 
-def draw_force(ax, position, force, scale=0.2, color='magenta'):
-    force = np.array(force)
-    force_scaled = force / np.linalg.norm(force) * scale
-    ax.quiver(*position, *force_scaled, color=color, linewidth=2)
+def draw_arrow_with_head_2d(ax, start, vec, color='r', lw=1.5, arrow_length_ratio=0.05):
+    print('start: ', start)
+    print('vec: ', vec)
+    ax.quiver(start[0], start[1], vec[0], vec[1],
+              color=color, linewidth=lw,
+              angles='xy', scale_units='xy', scale=1,
+              width=0.005, headwidth=3, headlength=5)
+    
+def draw_force(ax, force_base_frame, T, end, num_forces, case, index, scale=0.1, color="magenta"):
+    # Convert force to numpy array
+    #force = np.array(force_base_frame)
+
+    # # Normalize and scale the force vector
+    # if np.linalg.norm(force) != 0:
+    #     force_scaled = force / np.linalg.norm(force) * scale
+    # else:
+    #     force_scaled = np.zeros_like(force)
+
+    # # Extract position from transformation matrix T
+    # pos = T.A[0:2, 3] if hasattr(T, 'A') else np.array(position)
+    force_base_frame = force_base_frame / 50000*np.linalg.norm(force_base_frame)
+    # Draw the force arrow
+    print('T: ', type(T), T)
+    end = [end[0], end[1], end[2], 1]
+    print('start draw force: ', end)
+    print('end draw force: ', end)
+    # R = T.R
+    print('R draw force: ', R)
+    T = T.A
+    T = np.array(T)
+    end = np.array(end)
+    print('T.A draw force: ', T )
+    end = T @ end
+    pos = end[:3] - force_base_frame
+    print('force: ', force_base_frame)
+    ax.quiver(pos[0], pos[1], force_base_frame[0], force_base_frame[1],
+              color=color, angles='xy', scale_units='xy', scale=1,
+              width=0.005, headwidth=3, headlength=5)
+    
+     # Place label near the tail
+    if not np.all(force_base_frame == 0):
+        offset = np.array([0.1, 0.1])  # tweak for spacing
+        label_pos = pos[:2] + offset
+        if num_forces == 1:
+            label = "$F$"
+        if num_forces == 2:
+            if index == 0 or index == 1 or index == 2:
+                label = "$F_A$"
+            if index == 3:
+                label = "$F_B$"
+        ax.text(label_pos[0], label_pos[1], label,
+                color=color, fontsize=12, ha='left', va='bottom')
 
 def set_axes_equal(ax):
     """Set 3D plot axes to equal scale so that arrows are not distorted."""
@@ -194,7 +268,8 @@ p4r = Planar_4r(link_lengths, link_masses, link_radiuses)
 robot = p4r.robot
 
 # Setup figure
-fig, ax = init_custom_3d()
+#fig, ax = init_custom_3d()
+fig, ax = init_custom_2d()
 
 # # Animate a trajectory
 # q_traj = np.linspace(0, np.pi/2, 200)   # simple joint motion
@@ -236,6 +311,63 @@ def update_custom_3d(ax, robot, q, reach, margin, time_value = None):
     if time_value is not None:
         ax.text2D(0.05, 0.95, f"Time: {time_value:.2f} s", transform=ax.transAxes, fontsize=12, color='black')
     #set_axes_equal(ax)
+    plt.pause(0.001)
+
+def update_custom_2d(ax, robot, q, forces_base_frame, contact_points_link_frame, num_forces, case, reach=2, margin=0.4, time_value=None):
+    ax.cla()
+    ax.set_xlim([-reach - margin, reach + margin])
+    ax.set_ylim([-reach - margin, reach + margin])
+    ax.set_xlabel("X [m]")
+    ax.set_ylabel("Y [m]")
+    ax.set_title("Planar 4R Arm (2D)")
+
+    Ts = robot.fkine_all(q)
+    xs, ys = [], []
+    i = 0
+    for T in Ts:
+        p = T.t
+        xs.append(p[0])
+        ys.append(p[1])
+        draw_frame_2d(ax, T, length=0.2)
+        if i < len(forces_base_frame):
+            draw_force(ax, forces_base_frame[i], Ts[i+1], end=contact_points_link_frame[i], num_forces=num_forces, case=case, index=i, scale=0.1, color="magenta")
+        if i == 0: 
+            offset = np.array([0.1, 0.1])  # tweak for spacing
+            label_pos = p[:2] - offset
+            label = "$RF_0$"
+            ax.text(label_pos[0], label_pos[1], label,
+                color='b', fontsize=12, ha='right', va='bottom')
+        # if i == 3:
+        #     offset = np.array([0.1, 0.1])  # tweak for spacing
+        #     label_pos = p[:2] + offset
+        #     label = "$RF_3$"
+        #     ax.text(label_pos[0], label_pos[1], label,
+        #         color='b', fontsize=12, ha='left', va='bottom')
+        # offset = np.array([0.1, 0.1])  # tweak for spacing
+        # label_pos = p[:2] + offset
+        # # if num_forces == 1:
+        # #     label = "$F$"
+        # # if num_forces == 2:
+        # #     if index == 0 or index == 1 or index == 2:
+        # #         label = "$F_A$"
+        # #     if index == 3:
+        # #         label = "$F_B$"
+        # ax.text(label_pos[0], label_pos[1], 'RF',
+        #         color='b', fontsize=12, ha='left', va='bottom')
+        i += 1
+        
+
+        
+
+    #points = np.column_stack((xs, ys))
+    ax.plot(xs, ys, "-o", color="royalblue", linewidth=2, markersize=6) #ax.plot(points[:, 0], points[:, 1], "-o", color="royalblue", linewidth=2, markersize=6)
+    ax.scatter(xs[-1], ys[-1], color="red", s=80, edgecolors="k") #ax.scatter(points[-1, 0], points[-1, 1], color="red", s=80, edgecolors="k")
+
+    if time_value is not None:
+        ax.text(0.05, 0.95, f"Time: {time_value:.2f} s", transform=ax.transAxes, fontsize=12, color='black')
+
+    ax.grid(True)
+    ax.set_aspect("equal")
     plt.pause(0.001)
 
 def get_base_to_link_transformation(robot, q):
@@ -375,7 +507,7 @@ F4_ext = np.array([0, 0, 0])
 P4_ext = np.array([0, 0, 0])
 
 # valori nominali di forze esterne e punti di contatto 
-F1_ext_ = np.array([0, 500, 0])
+F1_ext_ = np.array([0, 200, 0])
 P1_ext_ = np.array([-0.1,0,0])
 
 F2_ext_ = np.array([0,400, 0])
@@ -391,7 +523,7 @@ P4_ext_ = np.array([-0.1,0,0])
 time_interval_1 = np.array([0.05, 0.5])
 time_interval_2 = np.array([0.2, 0.6])
 time_interval_3 = np.array([0.1, 0.5])
-time_interval_4 = np.array([0.2, 0.5])
+time_interval_4 = np.array([0.1, 0.5])
 
 fext_base_array = np.zeros((n, 3), dtype=np.float64)
 #case for single force applied
@@ -517,7 +649,8 @@ debug_Fa = False
 debug_Fb = False
 ANIMATE = True#
 if ANIMATE:
-    fig, ax = init_custom_3d()
+    #fig, ax = init_custom_3d()
+    fig, ax = init_custom_2d()
 
 for k, t in enumerate(time):
     print('t', t)
@@ -802,7 +935,9 @@ for k, t in enumerate(time):
     q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k], Fx_tot_log[k], Fy_tot_log[k] = q, qd, tau, tau_prime, res, tau_ext, Fx_tot, Fy_tot
 
     if ANIMATE:
-        update_custom_3d(ax, robot, q, reach = 2, margin=.4, time_value = t)
+        #update_custom_3d(ax, robot, q, reach = 2, margin=.4, time_value = t)
+        print('f_base: ', f_base)
+        update_custom_2d(ax, robot, q, fext_base_array, contact_points_link_frame=pext_links, num_forces=num_forces, case=case, reach=2, margin=0.4, time_value=t)
         #ax.text(0.5, 0.5, 0.5 + 0.2, f"Time: {t:.2f} s", fontsize=12, color='black')
 
 
