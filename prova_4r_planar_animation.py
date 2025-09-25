@@ -14,9 +14,18 @@ import sympy as sp
 import time
 from mpl_toolkits.mplot3d.art3d import Line3D
 
-
-plt.style.use("ggplot")  # ✅ same style as your Anthro3R
+# set global plot style
+plt.style.use("seaborn-whitegrid")  # ✅ same style as your Anthro3R
+plt.rcParams["lines.linewidth"] = 2
 #plt.style.use("default") 
+
+# Change font sizes globally
+plt.rcParams["axes.titlesize"] = 14   # title font
+plt.rcParams["axes.labelsize"] = 12   # x and y axis labels
+plt.rcParams["axes.titleweight"] = "bold"  # title weight
+plt.rcParams["xtick.labelsize"] = 10  # x tick labels
+plt.rcParams["ytick.labelsize"] = 10  # y tick labels
+plt.rcParams["legend.fontsize"] = 10   # 👈 legend font size
 
 class Planar_4r:
     def __init__(self, link_lengths, link_masses, link_radiuses):
@@ -152,20 +161,6 @@ def draw_frame(ax, T, length=0.01):
 def draw_arrow_with_head(ax, start, vec, color='r', lw=1.5, arrow_length_ratio=0.05):
     ax.quiver(*start, *vec, color=color, linewidth=lw, arrow_length_ratio=arrow_length_ratio, normalize=False) 
 
-
-# def draw_frame(ax, T, length=0.5):
-#     origin = T.t
-#     R = T.R
-
-#     # Normalize each axis vector
-#     x_axis = R[:, 0] / np.linalg.norm(R[:, 0]) * length
-#     y_axis = R[:, 1] / np.linalg.norm(R[:, 1]) * length
-#     z_axis = R[:, 2] / np.linalg.norm(R[:, 2]) * length
-
-#     ax.quiver(*origin, *x_axis, color="r", linewidth=1.2)
-#     ax.quiver(*origin, *y_axis, color="g", linewidth=1.2)
-#     ax.quiver(*origin, *z_axis, color="b", linewidth=1.2)
-
 def draw_force(ax, position, force, scale=0.2, color='magenta'):
     force = np.array(force)
     force_scaled = force / np.linalg.norm(force) * scale
@@ -190,30 +185,6 @@ def set_axes_equal(ax):
     ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
     ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
-
-# def update_custom_3d(ax, robot, q):
-#     ax.cla()
-#     ax.set_xlim([-3, 3])
-#     ax.set_ylim([-3, 3])
-#     ax.set_zlim([-3, 3])
-#     ax.set_xlabel("X [m]")
-#     ax.set_ylabel("Y [m]")
-#     ax.set_zlabel("Z [m]")
-#     ax.set_title("Anthropomorphic 3R Arm")
-
-#     Ts = robot.fkine_all(q)
-#     xs, ys, zs = [], [], []
-#     for T in Ts:
-#         p = T.t
-#         xs.append(p[0])
-#         ys.append(p[1])
-#         zs.append(p[2])
-#         draw_frame(ax, T, length=0.3)
-#         draw_force(ax, p, T.c, scale=0.1, color='magenta')
-#     ax.plot(xs, ys, zs, '-o', color='royalblue', markersize=4, linewidth=2)
-#     ax.scatter(xs[-1], ys[-1], zs[-1], color='red', s=80, edgecolors='k')
-#     set_axes_equal(ax)
-#     plt.pause(0.001)
 
 link_lengths = [0.5, 0.5, 0.5, 0.5]
 link_masses  = [5, 5, 5, 5]
@@ -304,16 +275,26 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 2
+T  = 5
 Kp = 30 * np.diag([1, 1, 1,1 ])
 Kd = 30 * np.diag([1, 1, 1, 1])
+
+# Kp = np.diag([1, 50, 50,50 ])
+# Kd = np.diag([1, 50, 50, 50])
+
+
 K_0 = 20 * np.diag([1, 1, 1, 1]) # residual gain
 
-q0 = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
-qf = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+#q0 = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+#qf = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+
+#q0 = np.array([pi/2, -pi/2, pi/2, -pi/2])
 
 #q0 = np.array([0, 0, 0, 0])
 #qf = np.array([0, 0, 0, 0])
+
+q0 = np.array([0, np.pi/2, -np.pi/2, np.pi/2])
+qf = np.array([np.pi/2, 0, 0, 0])
 
 
 time = np.arange(0, T, DT)
@@ -346,12 +327,17 @@ Fb_y_gt = 0
 # rotation matrices 
 R = np.zeros((n, 3, 3))
 
+# real values for single contact force
+F_x_real_log = np.zeros(N)
+F_y_real_log = np.zeros(N)
+l_contact_log = np.zeros(N)
+
 # reconstructed values, single contact force
 F_x_log = np.zeros(N)
 F_y_log = np.zeros(N)
 l_log = np.zeros(N)
 
-# for double contact
+# reconstructed values for double contact
 Fa_x_log = np.zeros(N)
 Fa_y_log = np.zeros(N)
 la_bar_log = np.zeros(N)
@@ -389,28 +375,28 @@ F4_ext = np.array([0, 0, 0])
 P4_ext = np.array([0, 0, 0])
 
 # valori nominali di forze esterne e punti di contatto 
-F1_ext_ = np.array([0, 400, 0])
+F1_ext_ = np.array([0, 500, 0])
 P1_ext_ = np.array([-0.1,0,0])
 
-F2_ext_ = np.array([0,500, 0])
+F2_ext_ = np.array([0,400, 0])
 P2_ext_ = np.array([-0.1,0,0])
 
 F3_ext_ = np.array([0,400,0])
 P3_ext_ = np.array([-0.1,0,0])
 
-F4_ext_ = np.array([0,-200,0])
+F4_ext_ = np.array([0, 100,0])
 P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([0.3, 1.5])
+time_interval_1 = np.array([0.05, 0.5])
 time_interval_2 = np.array([0.2, 0.6])
-time_interval_3 = np.array([0.1, 0.2])
-time_interval_4 = np.array([0.5, 1.0])
+time_interval_3 = np.array([0.1, 0.5])
+time_interval_4 = np.array([0.2, 0.5])
 
 fext_base_array = np.zeros((n, 3), dtype=np.float64)
 #case for single force applied
-num_forces =  1   #[1, 2] how many external forces are applied
-case_single = 1 # [1, 2, 3, 4] on which link is the force applied
+num_forces =  2   #[1, 2] how many external forces are applied
+case_single = 4 # [1, 2, 3, 4] on which link is the force applied
 case_double = 14 # [14, 24, 34, 44] on which link is the force applied
 
 if num_forces == 1: 
@@ -553,9 +539,17 @@ for k, t in enumerate(time):
     tau = tau_fb
 
     # external forces
+    l_contact = 0
+    F_x_real = 0
+    F_y_real = 0
     if bool_f1 and t > time_interval_1[0] and t < time_interval_1[1]:
         fext_links[0] = F1_ext
         pext_links[0] = P1_ext
+        l_contact = P1_ext[0]
+        if num_forces == 1:
+            F_x_real = F1_ext[0]
+            F_y_real = F1_ext[1]
+            print('F_y_real', F_y_real)
         if num_forces == 2 and debug_Fa == True:
             Fa_x_gt = F1_ext[0]
             Fa_y_gt = F1_ext[1]
@@ -566,6 +560,9 @@ for k, t in enumerate(time):
     if bool_f2 and t > time_interval_2[0] and t < time_interval_2[1]:
         fext_links[1] = F2_ext
         pext_links[1] = P2_ext
+        if num_forces == 1:
+            F_x_real = F2_ext[0]
+            F_y_real = F2_ext[1]
         if num_forces == 2 and debug_Fa == True:
             Fa_x_gt = F2_ext[0]
             Fa_y_gt = F2_ext[1]
@@ -576,6 +573,9 @@ for k, t in enumerate(time):
     if bool_f3 and t > time_interval_3[0] and t < time_interval_3[1]:
         fext_links[2] = F3_ext
         pext_links[2] = P3_ext
+        if num_forces == 1:
+            F_x_real = F3_ext[0]
+            F_y_real = F3_ext[1]
         if num_forces == 2 and debug_Fa == True:
             Fa_x_gt = F3_ext[0]
             Fa_y_gt = F3_ext[1]
@@ -585,6 +585,9 @@ for k, t in enumerate(time):
     if bool_f4 and t > time_interval_4[0] and t < time_interval_4[1]:
         fext_links[3] = F4_ext
         pext_links[3] = P4_ext
+        if num_forces == 1:
+            F_x_real = F4_ext[0]
+            F_y_real = F4_ext[1]
         if num_forces == 2 and debug_Fb == True:
             Fb_x_gt = F4_ext[0]
             Fb_y_gt = F4_ext[1]
@@ -681,7 +684,8 @@ for k, t in enumerate(time):
         fext_base_array[i] = f_base
 
     totals = fext_base_array.sum(axis=0)
-    Fx_tot = totals[0]
+    # forze totali espresse nel SDR della base del robot
+    Fx_tot = totals[0] 
     Fy_tot = totals[1]
     #print('Fx_tot_base: ', Fx_tot)
     #print('Fy_tot_base: ', Fy_tot)
@@ -733,7 +737,19 @@ for k, t in enumerate(time):
         # #print('q1', q[0])
         if num_forces == 1:
             solution = solver.solve(knowns)
-            #print('solution: ', solution)
+            if solution:
+                sol = solution[0]
+                print('solution: ', solution)
+                F_sol_base = [sol.get(solver.F_x), sol.get(solver.F_y), 0] # ho trovato la forza nel frame della base
+                if case == 1: 
+                    # esprimo la forza nel frame dei link
+                    F_sol_link = R[0].T @ F_sol_base
+                elif case == 2:
+                    F_sol_link = R[1].T @ F_sol_base
+                elif case == 3:
+                    F_sol_link = R[2].T @ F_sol_base
+                elif case == 4:
+                    F_sol_link = R[3].T @ F_sol_base
         elif num_forces == 2 and case == 14:
             solution = solver.block_solve_14(knowns)
             sol = solution[0]
@@ -743,6 +759,7 @@ for k, t in enumerate(time):
             la_bar_base = sol.get(solver.la_bar)
             lb_bar_base = sol.get(solver.lb_bar)
             if case == 14:
+                # esprimo le forze nel frame dei link
                 Fa_sol_link = R[0].T @ Fa_sol_base
                 Fb_sol_link = R[3].T @ Fb_sol_base
 
@@ -754,8 +771,8 @@ for k, t in enumerate(time):
             sol = solution[0]
             if num_forces == 1:
                 sol = solution[0]
-                F_x_val = sol.get(solver.F_x, 0)
-                F_y_val = sol.get(solver.F_y, None)
+                F_x_val = F_sol_link[0] #sol.get(solver.F_x, 0)
+                F_y_val = F_sol_link[1] #sol.get(solver.F_y, None)
                 l_val   = sol.get(solver.l_bar, 0)
                 F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
             if num_forces == 2:
@@ -777,6 +794,11 @@ for k, t in enumerate(time):
     # assegni ai tuoi log
     #F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
     # Log
+
+    # groud truth value for single contact
+    print('final debugF_y_real: ', F_y_real_log[k])
+    F_x_real_log[k], F_y_real_log[k], l_contact_log[k] = F_x_real, F_y_real, l_contact
+    #l_contact_a_log[k] = 
     q_log[k], qd_log[k], tau_log[k], tau_prime_log[k], res_log[k], tau_ext_log[k], Fx_tot_log[k], Fy_tot_log[k] = q, qd, tau, tau_prime, res, tau_ext, Fx_tot, Fy_tot
 
     if ANIMATE:
@@ -789,12 +811,12 @@ for k, t in enumerate(time):
 # --------------------------
 labels_q = [f"q{i+1}" for i in range(n)]
 labels_qd = [f"q̇{i+1}" for i in range(n)]
-
+l_range = [-0.5, 0.5]
 
 plt.figure(facecolor='white')
 # ax = fig.add_subplot(111)
 # ax.set_facecolor("white")
-plt.plot(time, q_log[:, :3])
+plt.plot(time, q_log)
 plt.title("Anthro 3R Joint Angles")
 plt.xlabel("Time [s]")
 plt.ylabel("q [rad]")
@@ -807,7 +829,7 @@ plt.figure(facecolor='white')
 plt.plot(time, qd_log)
 plt.title("Anthro 3R Joint Velocities")
 plt.xlabel("Time [s]")
-plt.ylabel("q̇ [rad/s]")
+plt.ylabel("dq [rad/s]")
 plt.legend(labels_qd)
 ax.grid(True)
 
@@ -839,16 +861,18 @@ plt.figure(facecolor='white')
 # ax = fig.add_subplot(111)
 # ax.set_facecolor("white")
 plt.plot(time, tau_ext_log)
-plt.title("tau_ext")
+plt.title("Total external torques")
 plt.xlabel("Time [s]")
 plt.ylabel("tau_ext [Nm]")
 plt.legend([f"tau_ext{i+1}" for i in range(n)])
 ax.grid(True)
 
 if num_forces == 1:
+    y_range = [-200, 200]
     plt.figure()
-    plt.plot(time, F_x_log)
-    plt.title("F_x")
+    plt.plot(time, -F_x_log)
+    plt.ylim(y_range)
+    plt.title("Reconstructed external force $F_x$")
     plt.xlabel("Time [s]")
     plt.ylabel("F_x [Nm]")
     plt.legend([f"F_x{i+1}" for i in range(n)])
@@ -856,7 +880,8 @@ if num_forces == 1:
 
     plt.figure()
     plt.plot(time, F_y_log)
-    plt.title("F_y")
+    plt.ylim(y_range)
+    plt.title("F_y_log Reconstructed external force $F_y$")
     plt.xlabel("Time [s]")
     plt.ylabel("F_y [Nm]")
     plt.legend([f"F_y{i+1}" for i in range(n)])
@@ -864,10 +889,38 @@ if num_forces == 1:
 
     plt.figure()
     plt.plot(time, l_log)
-    plt.title("l")
+    plt.ylim(l_range)
+    plt.title("Reconstructed contact length")
     plt.xlabel("Time [s]")
-    plt.ylabel("l [Nm]")
+    plt.ylabel("$l_c$ [m]")
     plt.legend([f"l{i+1}" for i in range(n)])
+    ax.grid(True)
+
+    plt.figure()
+    plt.plot(time, F_x_real_log)
+    plt.ylim(y_range)
+    plt.title("Real external force $F_x^{real}$")
+    plt.xlabel("Time [s]")
+    plt.ylabel("$F_x^{real}$ [Nm]")
+    plt.legend([f"F_x_real{i+1}" for i in range(n)])
+    ax.grid(True)
+
+    plt.figure()
+    plt.plot(time, F_y_real_log)
+    plt.ylim(y_range)
+    plt.title("F_y_real_log Real external force $F_y^{real}$")
+    plt.xlabel("Time [s]")
+    plt.ylabel("$F_y^{real}$ [Nm]")
+    plt.legend([f"F_y_real{i+1}" for i in range(n)])
+    ax.grid(True)
+
+    plt.figure()
+    plt.plot(time, l_contact_log)
+    plt.ylim(l_range)
+    plt.title("Real contact length")
+    plt.xlabel("Time [s]")
+    plt.ylabel("$l_c$ [m]")
+    plt.legend([f"l_contact{i+1}" for i in range(n)])
     ax.grid(True)
 
 if num_forces == 2:
@@ -910,7 +963,7 @@ if num_forces == 2:
 
     plt.figure()
     plt.plot(time, la_bar_log)
-    plt.ylim([-1, 1])
+    plt.ylim(l_range)
     plt.title("la_bar")
     plt.xlabel("Time [s]")
     plt.ylabel("la_bar [Nm]")
@@ -919,7 +972,7 @@ if num_forces == 2:
 
     plt.figure()
     plt.plot(time, lb_bar_log)
-    plt.ylim([-1, 1])
+    plt.ylim(l_range)
     plt.title("lb_bar")
     plt.xlabel("Time [s]")
     plt.ylabel("lb_bar [Nm]")
@@ -928,9 +981,9 @@ if num_forces == 2:
 
     plt.figure()
     plt.plot(time, Fx_tot_log)
-    plt.title("Fx_tot")
+    plt.title("F_x^{2}")
     plt.xlabel("Time [s]")
-    plt.ylabel("Fx_tot [Nm]")
+    plt.ylabel("F_x_tot [Nm]")
     plt.legend([f"Fx_tot{i+1}" for i in range(n)])
     ax.grid(True)
 
