@@ -13,6 +13,9 @@ from solve_planar import SolvePlanarSystem
 import sympy as sp
 import time
 from mpl_toolkits.mplot3d.art3d import Line3D
+import os 
+
+path =  '/home/pcarboni/MARR/TESI/GRAFICI/PLANAR/'
 
 # set global plot style
 plt.style.use("seaborn-whitegrid")  # ✅ same style as your Anthro3R
@@ -208,7 +211,7 @@ def draw_force(ax, force_base_frame, T, end, num_forces, case, index, scale=0.1,
     # # Extract position from transformation matrix T
     # pos = T.A[0:2, 3] if hasattr(T, 'A') else np.array(position)
     if num_forces ==1:
-        force_base_frame = -force_base_frame/np.linalg.norm(force_base_frame)*0.5
+        force_base_frame = force_base_frame/np.linalg.norm(force_base_frame)*0.5
     else:
         force_base_frame = -force_base_frame / 250
     #force_base_frame = -force_base_frame / 50000*np.linalg.norm(force_base_frame)
@@ -226,7 +229,7 @@ def draw_force(ax, force_base_frame, T, end, num_forces, case, index, scale=0.1,
     
      # Place label near the tail
     if not np.all(force_base_frame == 0):
-        offset = np.array([0.1, 0.1])  # tweak for spacing
+        offset = np.array([-0.02, -0.25])  # tweak for spacing
         label_pos = pos[:2] + offset
         if num_forces == 1:
             label = "$F$"
@@ -236,7 +239,7 @@ def draw_force(ax, force_base_frame, T, end, num_forces, case, index, scale=0.1,
             if index == 3:
                 label = "$F_B$"
         ax.text(label_pos[0], label_pos[1], label,
-                color=color, fontsize=12, ha='left', va='bottom')
+                color=color, fontsize=12, ha='right', va='bottom')
 
 def set_axes_equal(ax):
     """Set 3D plot axes to equal scale so that arrows are not distorted."""
@@ -260,7 +263,7 @@ def set_axes_equal(ax):
 
 link_lengths = [0.5, 0.5, 0.5, 0.5]
 link_masses  = [5, 5, 5, 5]
-link_radiuses = [0.2, 0.2, 0.2, 0.2]
+link_radiuses = [0.1, 0.1, 0.1, 0.1]
 
 p4r = Planar_4r(link_lengths, link_masses, link_radiuses)
 robot = p4r.robot
@@ -330,21 +333,19 @@ def update_custom_2d(ax, robot, q, forces_base_frame, contact_points_link_frame,
         if i < len(forces_base_frame):
             draw_force(ax, forces_base_frame[i], Ts[i+1], end=contact_points_link_frame[i], num_forces=num_forces, case=case, index=i, scale=0.1, color="magenta")
         if i == 0: 
-            offset = np.array([0.15, 0.15])  # tweak for spacing
+            offset = np.array([-0.2, 0.25])  # tweak for spacing
             label_pos = p[:2] - offset
             label = "$RF_0$"
             ax.text(label_pos[0], label_pos[1], label,
                 color='b', fontsize=12, ha='right', va='bottom')
         if i == 4: 
-            offset = np.array([0.05, 0.05])  # tweak for spacing
+            offset = np.array([0.25, 0.1])  # tweak for spacing
             label_pos = p[:2] + offset
             label = "$ee$"
             ax.text(label_pos[0], label_pos[1], label,
-                color='r', fontsize=12, ha='left', va='bottom')
+                color='r', fontsize=12, ha='right', va='bottom')
         i += 1
-        
-
-        
+                
 
     #points = np.column_stack((xs, ys))
     ax.plot(xs, ys, "-o", color="royalblue", linewidth=2, markersize=6) #ax.plot(points[:, 0], points[:, 1], "-o", color="royalblue", linewidth=2, markersize=6)
@@ -363,7 +364,7 @@ def get_base_to_link_transformation(robot, q):
 
 print('get_base_to_link_transformation: ', get_base_to_link_transformation(robot, [0,0,0,0]))
 
-# ---------------- Run animation -------------- #
+# --------------- Run animation -------------- #
 # if __name__ == "__main__":
 #     link_lengths = [0.5, 0.5, 0.5, 0.5]
 #     link_masses = [5, 5, 5, 5]
@@ -394,19 +395,19 @@ pext_links = [[0,0,0] for _ in range(n)] # px py pz
 # --------------------------
 #DT = 0.002
 DT = 0.002
-T  = 5
-Kp = 30 * np.diag([1, 1, 1,1 ])
-Kd = 30 * np.diag([1, 1, 1, 1])
+T  = 10.0
+# Kp = 30 * np.diag([1, 1, 1,1 ])
+# Kd = 30 * np.diag([1, 1, 1, 1])
 
-# Kp = 0 * np.diag([1, 50, 50,50 ])
-# Kd = 0 * np.diag([1, 50, 50, 50])
+Kp = 0 * np.diag([1, 50, 50,50 ])
+Kd = 0 * np.diag([1, 50, 50, 50])
 
 
 K_0 = 20 * np.diag([1, 1, 1, 1]) # residual gain
 
 # pentagono
-#q0 = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
-#qf = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+# q0 = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
+# qf = np.array([np.pi/3, np.pi/2, np.pi/3, -3*np.pi/2])
 
 #q0 = np.array([pi/2, -pi/2, pi/2, -pi/2])
 
@@ -417,6 +418,9 @@ qf = np.array([0, 0, 0, 0])
 # q0 = np.array([0, np.pi/2, -np.pi/2, np.pi/2])
 # qf = np.array([np.pi/2, 0, 0, 0])
 
+# s shape
+# q0 = np.array([np.pi/4, -np.pi/4, -np.pi/3, np.pi/3])
+# qf = np.array([np.pi/4, -np.pi/4, -np.pi/3, np.pi/3])
 
 time = np.arange(0, T, DT)
 N = len(time)
@@ -440,10 +444,12 @@ tau_ext_log = np.zeros((N, n))
 res_log = np.zeros((N, n))
 Fx_tot_log = np.zeros(N)
 Fy_tot_log = np.zeros(N)
-Fa_x_gt = 0
-Fa_y_gt = 0
-Fb_x_gt = 0
-Fb_y_gt = 0
+Fa_x_gt_log = np.zeros(N)
+Fa_y_gt_log = np.zeros(N)
+la_bar_gt_log = np.zeros(N)
+Fb_x_gt_log = np.zeros(N)
+Fb_y_gt_log = np.zeros(N)
+lb_bar_gt_log = np.zeros(N)
 
 # rotation matrices 
 R = np.zeros((n, 3, 3))
@@ -496,28 +502,28 @@ F4_ext = np.array([0, 0, 0])
 P4_ext = np.array([0, 0, 0])
 
 # valori nominali di forze esterne e punti di contatto 
-F1_ext_ = np.array([0, 100, 0])
+F1_ext_ = np.array([0, 400, 0])
 P1_ext_ = np.array([-0.1,0,0])
 
-F2_ext_ = np.array([0,200, 0])
+F2_ext_ = np.array([0,400, 0])
 P2_ext_ = np.array([-0.1,0,0])
 
 F3_ext_ = np.array([0,200,0])
 P3_ext_ = np.array([-0.1,0,0])
 
-F4_ext_ = np.array([0, 150,0])
+F4_ext_ = np.array([50, 150,0])
 P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([0.05, 0.5])
-time_interval_2 = np.array([0.2, 0.6])
+time_interval_1 = np.array([0.5, 1.5])
+time_interval_2 = np.array([0.1, 1.5])
 time_interval_3 = np.array([0.1, 0.5])
-time_interval_4 = np.array([0.1, 0.5])
+time_interval_4 = np.array([0.5, 2.0])
 
 fext_base_array = np.zeros((n, 3), dtype=np.float64)
 #case for single force applied
 num_forces =  1   #[1, 2] how many external forces are applied
-case_single = 1 # [1, 2, 3, 4] on which link is the force applied
+case_single = 2 # [1, 2, 3, 4] on which link is the force applied
 case_double = 14 # [14, 24, 34, 44] on which link is the force applied
 
 if num_forces == 1: 
@@ -634,8 +640,11 @@ solver = SolvePlanarSystem(num_forces, case)
 # Simulation loop
 # --------------------------
 
-debug_Fa = False
-debug_Fb = False
+single_path = os.path.join(path, '1FORCE')
+double_path = os.path.join(path, '2FORCES')
+
+debug_Fa = True
+debug_Fb = True
 ANIMATE = True#
 if ANIMATE:
     #fig, ax = init_custom_3d()
@@ -662,8 +671,15 @@ for k, t in enumerate(time):
 
     # external forces
     l_contact = 0
+    la_bar_gt = 0
+    lb_bar_gt = 0
     F_x_real = 0
     F_y_real = 0
+    Fa_x_gt = np.float64(0)
+    Fa_y_gt = 0
+    Fb_x_gt = 0
+    Fb_y_gt = 0
+
     if bool_f1 and t > time_interval_1[0] and t < time_interval_1[1]:
         fext_links[0] = F1_ext
         pext_links[0] = P1_ext
@@ -674,7 +690,10 @@ for k, t in enumerate(time):
             print('F_y_real', F_y_real)
         if num_forces == 2 and debug_Fa == True:
             Fa_x_gt = F1_ext[0]
+            print('if bool Fa_x_gt', Fa_x_gt)
+            print(type(Fa_x_gt))
             Fa_y_gt = F1_ext[1]
+            la_bar_gt = l_contact
     else:
         fext_links[0] = np.zeros(3)
         pext_links[0] = np.zeros(3)
@@ -688,6 +707,7 @@ for k, t in enumerate(time):
         if num_forces == 2 and debug_Fa == True:
             Fa_x_gt = F2_ext[0]
             Fa_y_gt = F2_ext[1]
+            la_bar_gt = l_contact
     else:
         fext_links[1] = np.zeros(3)
         pext_links[1] = np.zeros(3)
@@ -701,6 +721,7 @@ for k, t in enumerate(time):
         if num_forces == 2 and debug_Fa == True:
             Fa_x_gt = F3_ext[0]
             Fa_y_gt = F3_ext[1]
+            la_bar_gt = l_contact
     else:
         fext_links[2] = np.zeros(3)
         pext_links[2] = np.zeros(3)
@@ -713,6 +734,7 @@ for k, t in enumerate(time):
         if num_forces == 2 and debug_Fb == True:
             Fb_x_gt = F4_ext[0]
             Fb_y_gt = F4_ext[1]
+            lb_bar_gt = P4_ext[0]
     else:
         fext_links[3] = np.zeros(3)
         pext_links[3] = np.zeros(3)
@@ -845,12 +867,16 @@ for k, t in enumerate(time):
             knowns[solver.tau_2] = res[1]
             knowns[solver.tau_3] = res[2]
             knowns[solver.tau_4] = res[3]
-            if debug_Fa == True: 
-                knowns[solver.Fa_x] = Fa_x_gt
-                knowns[solver.Fa_y] = Fa_y_gt
-            if debug_Fb == True:
-                knowns[solver.Fb_x] = Fb_x_gt
-                knowns[solver.Fb_y] = Fb_y_gt
+            print('res[0]', res[0])
+            print(type(res[0]))
+            # if debug_Fa == True: 
+            #knowns[solver.Fa_x] = Fa_x_gt
+            print('Fa_x_gt', Fa_x_gt)
+            print(type(Fa_x_gt))
+            #     knowns[solver.Fa_y] = Fa_y_gt
+            # if debug_Fb == True:
+            #     knowns[solver.Fb_x] = Fb_x_gt
+            #     knowns[solver.Fb_y] = Fb_y_gt
 
 
 
@@ -859,6 +885,8 @@ for k, t in enumerate(time):
         # #print('q1', q[0])
         if num_forces == 1:
             solution = solver.solve(knowns)
+            #path = os.path.join(path, '1FORCE')
+            #os.makedirs(path, exist_ok=True)
             if solution:
                 sol = solution[0]
                 print('solution: ', solution)
@@ -866,13 +894,23 @@ for k, t in enumerate(time):
                 if case == 1: 
                     # esprimo la forza nel frame dei link
                     F_sol_link = R[0].T @ F_sol_base
+                    path = os.path.join(single_path, 'LINK1')
+                    os.makedirs(path, exist_ok=True)
                 elif case == 2:
                     F_sol_link = R[1].T @ F_sol_base
+                    path = os.path.join(single_path, 'LINK2')
+                    os.makedirs(path, exist_ok=True)
                 elif case == 3:
                     F_sol_link = R[2].T @ F_sol_base
+                    path = os.path.join(single_path, 'LINK3')
+                    os.makedirs(path, exist_ok=True)
                 elif case == 4:
                     F_sol_link = R[3].T @ F_sol_base
+                    path = os.path.join(single_path, 'LINK4')
+                    os.makedirs(path, exist_ok=True)
         elif num_forces == 2 and case == 14:
+            path = os.path.join(double_path, '14') #double_path
+            os.makedirs(path, exist_ok=True)
             solution = solver.block_solve_14(knowns)
             sol = solution[0]
             print('solution: ', solution)
@@ -883,6 +921,7 @@ for k, t in enumerate(time):
             if case == 14:
                 # esprimo le forze nel frame dei link
                 Fa_sol_link = R[0].T @ Fa_sol_base
+                #Fa_sol_link_0 = 
                 Fb_sol_link = R[3].T @ Fb_sol_base
 
             #print('Fa_sol_link: ', Fa_sol_link)
@@ -911,8 +950,10 @@ for k, t in enumerate(time):
                 # print('Fa_x_val : ', Fa_x_val)
                 #Fa_x_log[k] = Fa_x_val
                 Fa_x_log[k], Fa_y_log[k], Fb_x_log[k], Fb_y_log[k], la_bar_log[k], lb_bar_log[k] = Fa_x_val, Fa_y_val, Fb_x_val, Fb_y_val, la_bar_val, lb_bar_val
+    Fa_x_gt_log[k], Fa_y_gt_log[k], Fb_x_gt_log[k], Fb_y_gt_log[k], la_bar_gt_log[k], lb_bar_gt_log[k] = Fa_x_gt, Fa_y_gt, Fb_x_gt, Fb_y_gt, la_bar_gt, lb_bar_gt
                 #Fb_x_log[k], Fb_y_log[k], la_bar_log[k], lb_bar_log[k] =  Fb_x_val, Fb_y_val, la_bar_val, lb_bar_val
 
+    print('la bar log: ', la_bar_log[k])
     # assegni ai tuoi log
     #F_x_log[k], F_y_log[k], l_log[k] = F_x_val, F_y_val, l_val
     # Log
@@ -934,7 +975,7 @@ for k, t in enumerate(time):
 # Plots
 # --------------------------
 labels_q = [f"q{i+1}" for i in range(n)]
-labels_qd = [f"q̇{i+1}" for i in range(n)]
+labels_qd = [f"dq{i+1}" for i in range(n)]
 l_range = [-0.5, 0.5]
 
 plt.figure(facecolor='white')
@@ -945,6 +986,8 @@ plt.title("Joint Positions")
 plt.xlabel("Time [s]")
 plt.ylabel("q [rad]")
 plt.legend(labels_q)
+filename = 'q' + '.png'
+plt.savefig(os.path.join(path, filename))
 ax.grid(True)
 
 plt.figure(facecolor='white')
@@ -955,6 +998,8 @@ plt.title("Joint Velocities")
 plt.xlabel("Time [s]")
 plt.ylabel("dq [rad/s]")
 plt.legend(labels_qd)
+filename = 'qd' + '.png'
+plt.savefig(os.path.join(path, filename))
 ax.grid(True)
 
 # plt.figure()
@@ -979,6 +1024,8 @@ plt.title("Momentum Residuals")
 plt.xlabel("Time [s]")
 plt.ylabel("r [Nm]")
 plt.legend([f"res{i+1}" for i in range(n)])
+filename = 'residuals' + '.png'
+plt.savefig(os.path.join(path, filename))
 ax.grid(True)
 
 plt.figure(facecolor='white')
@@ -987,12 +1034,14 @@ plt.figure(facecolor='white')
 plt.plot(time, tau_ext_log)
 plt.title("Real External Torques")
 plt.xlabel("Time [s]")
-plt.ylabel("$\tau_{ext}$ ext [Nm]")
-plt.legend([f"$\tau_{ext}${i+1}" for i in range(n)])
+plt.ylabel(r"$\tau_{ext}$ [Nm]")
+plt.legend([fr"$\tau_{{ext,{i+1}}}$" for i in range(n)])
+filename = 'tau_ext' + '.png'
+plt.savefig(os.path.join(path, filename))
 ax.grid(True)
 
 if num_forces == 1:
-    y_range = [-200, 200]
+    y_range = [-450, 50]
     plt.figure()
     plt.plot(time, -F_x_log)
     plt.ylim(y_range)
@@ -1000,6 +1049,8 @@ if num_forces == 1:
     plt.xlabel("Time [s]")
     plt.ylabel("F [N]")
     #plt.legend([f"F_x{i+1}" for i in range(n)])
+    filename = 'Fx_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
     ax.grid(True)
 
     plt.figure()
@@ -1008,6 +1059,8 @@ if num_forces == 1:
     plt.title("Reconstructed external force $F_y$")
     plt.xlabel("Time [s]")
     plt.ylabel("F [N]")
+    filename = 'Fy_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
     #plt.legend([f"F_y{i+1}" for i in range(n)])
     ax.grid(True)
 
@@ -1017,6 +1070,8 @@ if num_forces == 1:
     plt.title("Reconstructed Contact Length")
     plt.xlabel("Time [s]")
     plt.ylabel("$l$ [m]")
+    filename = 'l_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
     #plt.legend(["l" for i in range(n)])
     ax.grid(True)
 
@@ -1026,15 +1081,19 @@ if num_forces == 1:
     plt.title("Real external force $F_x^{real}$")
     plt.xlabel("Time [s]")
     plt.ylabel("F [N]")
+    filename = 'Fx_real' + '.png'
+    plt.savefig(os.path.join(path, filename))
     #plt.legend([f"F_x_real{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
     plt.plot(time, -F_y_real_log)
     plt.ylim(y_range)
-    plt.title("F_y_real_log Real external force $F_y^{real}$")
+    plt.title("Real external force $F_y^{real}$")
     plt.xlabel("Time [s]")
     plt.ylabel("F [N]")
+    filename = 'Fy_real' + '.png'
+    plt.savefig(os.path.join(path, filename))
     #plt.legend([f"F_y_real{i+1}" for i in range(n)])
     ax.grid(True)
 
@@ -1044,80 +1103,162 @@ if num_forces == 1:
     plt.title("Real contact length")
     plt.xlabel("Time [s]")
     plt.ylabel("l [m]")
-    plt.legend([f"l_contact{i+1}" for i in range(n)])
+    filename = 'l_contact_real' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"l_contact{i+1}" for i in range(n)])
     ax.grid(True)
 
 if num_forces == 2:
-    y_range = [-200, 10]
+    y_range = [-450, 50]
     plt.figure()
-    plt.plot(time, Fa_x_log)
+    plt.plot(time, -Fa_x_log)
     plt.ylim(y_range)
-    plt.title("Fa_x")
+    plt.title("Reconstructed Contact Force $F_{A,x}$")
     plt.xlabel("Time [s]")
-    plt.ylabel("Fa_x [Nm]")
-    plt.legend([f"Fa_x{i+1}" for i in range(n)])
+    plt.ylabel("F [N]")
+    filename = 'Fa_x_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fa_x{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
-    plt.plot(time, Fa_y_log)
+    plt.plot(time, -Fa_y_log)
     plt.ylim(y_range)
-    plt.title("Fa_y")
+    plt.title("Reconstructed Contact Force $F_{A,y}$")
     plt.xlabel("Time [s]")
-    plt.ylabel("Fa_y [Nm]")
-    plt.legend([f"Fa_y{i+1}" for i in range(n)])
+    plt.ylabel("F [N]")
+    filename = 'Fa_y_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fa_y{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
-    plt.plot(time, Fb_x_log)
+    plt.plot(time, -Fb_x_log)
     plt.ylim(y_range)
-    plt.title("Fb_x")
+    plt.title("Reconstructed Contact Force $F_{B,x}$")
     plt.xlabel("Time [s]")
-    plt.ylabel("Fb_x [Nm]")
-    plt.legend([f"Fb_x{i+1}" for i in range(n)])
+    plt.ylabel("F [N]")
+    filename = 'Fb_x_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fb_x{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
-    plt.plot(time, Fb_y_log)
+    plt.plot(time, -Fb_y_log)
     plt.ylim(y_range)
-    plt.title("Fb_y")
+    plt.title("Reconstructed Contact Force $F_{B,y}$")
     plt.xlabel("Time [s]")
-    plt.ylabel("Fb_y [Nm]")
-    plt.legend([f"Fb_y{i+1}" for i in range(n)])
+    plt.ylabel("F [N]")
+    filename = 'Fb_y_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fb_y{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
     plt.plot(time, la_bar_log)
     plt.ylim(l_range)
-    plt.title("la_bar")
+    plt.title(r"Reconstructed Contact Length $\bar{l}_A$")
     plt.xlabel("Time [s]")
-    plt.ylabel("la_bar [Nm]")
-    plt.legend([f"la_bar{i+1}" for i in range(n)])
+    plt.ylabel("l [m]")
+    filename = 'la_bar_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"la_bar{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
     plt.plot(time, lb_bar_log)
     plt.ylim(l_range)
-    plt.title("lb_bar")
+    plt.title(r"Reconstructed Contact Length $\bar{l}_B$")
     plt.xlabel("Time [s]")
-    plt.ylabel("lb_bar [Nm]")
-    plt.legend([f"lb_bar{i+1}" for i in range(n)])
+    plt.ylabel("l [m]")
+    filename = 'lb_bar_reconstructed' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"lb_bar{i+1}" for i in range(n)])
+    ax.grid(True)
+
+    # GT values of the forces
+    plt.figure()
+    plt.plot(time, -Fa_x_gt_log)
+    plt.ylim(y_range)
+    plt.title("Ground Truth Contact Force $F_{A,x}$")
+    plt.xlabel("Time [s]")
+    plt.ylabel("F [N]")
+    filename = 'Fa_x_gt' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fa_x_gt{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
-    plt.plot(time, Fx_tot_log)
-    plt.title("F_x^{2}")
+    plt.plot(time, -Fa_y_gt_log)
+    plt.ylim(y_range)
+    plt.title("Ground Truth Contact Force $F_{A,y}$")
     plt.xlabel("Time [s]")
-    plt.ylabel("F_x_tot [Nm]")
-    plt.legend([f"Fx_tot{i+1}" for i in range(n)])
+    plt.ylabel("F [N]")
+    filename = 'Fa_y_gt' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fa_y_gt{i+1}" for i in range(n)])
     ax.grid(True)
 
     plt.figure()
-    plt.plot(time, Fy_tot_log)
-    plt.title("Fy_tot")
+    plt.plot(time, -Fb_x_gt_log)
+    plt.ylim(y_range)
+    plt.title("Ground Truth Contact Force $F_{B,x}$")
     plt.xlabel("Time [s]")
-    plt.ylabel("Fy_tot [Nm]")
-    plt.legend([f"Fy_tot{i+1}" for i in range(n)])
+    plt.ylabel("F [N]")
+    filename = 'Fb_x_gt' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fb_x_gt{i+1}" for i in range(n)])
     ax.grid(True)
+
+    plt.figure()
+    plt.plot(time, -Fb_y_gt_log)
+    plt.ylim(y_range)
+    plt.title("Ground Truth Contact Force $F_{B,y}$")
+    plt.xlabel("Time [s]")
+    plt.ylabel("F [N]")
+    filename = 'Fb_y_gt' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"Fb_y_gt{i+1}" for i in range(n)])
+    ax.grid(True)
+
+    plt.figure()
+    plt.plot(time, la_bar_gt_log)
+    plt.ylim(l_range)
+    plt.title(r"Ground Truth Contact Length $\bar{l}_A$")
+    plt.xlabel("Time [s]")
+    plt.ylabel("l [m]")
+    filename = 'la_bar_gt' + '.png'
+    plt.savefig(os.path.join(path, filename))
+   # plt.legend([f"la_bar_gt{i+1}" for i in range(n)])
+    ax.grid(True)
+
+    plt.figure()
+    plt.plot(time, lb_bar_gt_log)
+    plt.ylim(l_range)
+    plt.title(r"Ground Truth Contact Length $\bar{l}_B$")
+    plt.xlabel("Time [s]")
+    plt.ylabel("l [m]")
+    filename = 'lb_bar_gt' + '.png'
+    plt.savefig(os.path.join(path, filename))
+    #plt.legend([f"lb_bar_gt{i+1}" for i in range(n)])
+    ax.grid(True)
+
+
+    # plt.figure()
+    # plt.plot(time, Fx_tot_log)
+    # plt.title("F_x^{2}")
+    # plt.xlabel("Time [s]")
+    # plt.ylabel("F_x_tot [Nm]")
+    # plt.legend([f"Fx_tot{i+1}" for i in range(n)])
+    # ax.grid(True)
+
+    # plt.figure()
+    # plt.plot(time, Fy_tot_log)
+    # plt.title("Fy_tot")
+    # plt.xlabel("Time [s]")
+    # plt.ylabel("Fy_tot [Nm]")
+    # plt.legend([f"Fy_tot{i+1}" for i in range(n)])
+    # ax.grid(True)
 
 
 plt.show()
