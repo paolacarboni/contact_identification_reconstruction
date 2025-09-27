@@ -511,14 +511,14 @@ P2_ext_ = np.array([-0.1,0,0])
 F3_ext_ = np.array([0,200,0])
 P3_ext_ = np.array([-0.1,0,0])
 
-F4_ext_ = np.array([50, 150,0])
+F4_ext_ = np.array([0, 150,0])
 P4_ext_ = np.array([-0.1,0,0])   
 
 #time_interval_1 = np.array([0, 0.5])
-time_interval_1 = np.array([0.5, 1.5])
+time_interval_1 = np.array([0.1, 1.5])
 time_interval_2 = np.array([0.1, 1.5])
-time_interval_3 = np.array([0.1, 0.5])
-time_interval_4 = np.array([0.5, 2.0])
+time_interval_3 = np.array([0.1, 1.5])
+time_interval_4 = np.array([0.1, 2.0])
 
 fext_base_array = np.zeros((n, 3), dtype=np.float64)
 #case for single force applied
